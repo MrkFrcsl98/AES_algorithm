@@ -2,12 +2,6 @@
 
 # AES Algorithm
 
-![GitHub repo size](https://img.shields.io/github/repo-size/MrkFrcsl98/AES_algorithm)
-![GitHub contributors](https://img.shields.io/github/contributors/MrkFrcsl98/AES_algorithm)
-![GitHub stars](https://img.shields.io/github/stars/MrkFrcsl98/AES_algorithm?style=social)
-![GitHub forks](https://img.shields.io/github/forks/MrkFrcsl98/AES_algorithm?style=social)
-![GitHub license](https://img.shields.io/github/license/MrkFrcsl98/AES_algorithm)
-
 ## Table of Contents
 - [Introduction](#introduction)
 - [History of AES](#history-of-aes)
