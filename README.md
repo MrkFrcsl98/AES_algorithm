@@ -92,6 +92,33 @@ int main() {
 }
 ```
 
+Using AES_Encryption_v2...
+```cpp
+#include "aes.hpp"
+#include <iostream>
+#include <vector>
+#include <string>
+
+int main() {
+   try {
+      AES::AES_Encryption_v2 simpleAES;
+
+      std::string key = "thisisasecretkey"; // 16 bytes for AES-128
+      std::string plaintext = "hello world";
+
+      // Encrypt
+      std::string encrypted = simpleAES.Encrypt(plaintext, key);
+      std::cout << "Encrypted text (hex): " << encrypted << std::endl;
+
+      // Decrypt
+      std::string decrypted = simpleAES.Decrypt(encrypted, key);
+      std::cout << "Decrypted text: " << decrypted << std::endl;
+    } catch (const std::exception &e) {
+      std::cerr << "Error: " << e.what() << std::endl;
+    }
+}
+```
+
 ## Explanation
 
 ### AES Class
