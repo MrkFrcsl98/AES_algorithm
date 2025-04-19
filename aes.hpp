@@ -1,5 +1,4 @@
 #pragma once
-
 #include <stdexcept>
 #include <type_traits>
 #ifndef __MFAES_BLOCK_CIPHER_lbv01__
@@ -237,6 +236,17 @@ typedef struct {
 
 namespace AESCrypto {
 
+__attribute__((cold, pure, warn_unused_result, nonnull)) inline const __uint64T getByteSize(const char* input) noexcept {
+    if (input == nullptr || *input == '\0') [[unlikely]]
+      return 0;
+    __uint64T size{0};
+    __uint8T c = (*input) % 0xFF;
+    do {
+      ++size;
+    } while ((c = (*(++input) % 0xFF)) != '\0' && size < __UINT64_MAX__ - 0x1);
+    return size;
+  };
+
 template <__uint16T BlockSz> struct IsValidBlockSize {
   static const bool value = (BlockSz == __AES128KS__ || BlockSz == __AES192KS__ || BlockSz == __AES256KS__);
 };
@@ -269,16 +279,6 @@ public:
   };
 
 protected:
-  template <typename T> __attribute__((cold, pure, warn_unused_result, nonnull)) inline const __uint64T _getSequenceSize(T input) noexcept {
-    if (input == nullptr || *input == '\0') [[unlikely]]
-      return 0; // if there input is empty or first byte is terminator byte return 0
-    __uint64T size{0};
-    __uint16T c = (*input);
-    do {
-      ++size;
-    } while ((c = *(++input)) != '\0');
-    return size;
-  };
 
   template <typename T> __attribute__((nonnull, warn_unused_result, pure)) inline const Sequence<T> _genBlockSequence(__ccptrT seq, const __uint64T n) noexcept {
     struct Sequence<T> sequence;                // new sequence structure
@@ -308,7 +308,7 @@ protected:
   };
 
   __attribute__((cold)) inline void _argValidate(__ccptrT input, __ccptrT key) {
-    if ((this->_iSz = this->_getSequenceSize<__ccptrT>(input)) >= __UINT64_MAX__ || this->_iSz == 0 || (this->_kSz = this->_getSequenceSize<__ccptrT>(key)) > (__AES256KS__ / 8) ||
+    if ((this->_iSz = getByteSize(input)) >= __UINT64_MAX__ || this->_iSz == 0 || (this->_kSz = getByteSize(key)) > (__AES256KS__ / 8) ||
         this->_kSz == 0) [[unlikely]] {
       throw std::invalid_argument("invalid input or key!");
     }
@@ -479,23 +479,53 @@ public:
   inline AES_Encryption(const AES_Encryption &_c) noexcept = delete;
   inline AES_Encryption(const AES_Encryption &&_c) noexcept = delete;
 
-  inline AES_Encryption(__ccptrT input, __uint8T *out, __ccptrT key) {
+  inline AES_Encryption(__ccptrT input, __ccptrT key) {
     this->_generateAesConstants();
     this->_argValidate(input, key);
     this->_dataInitialization(input, key);
     this->_initRkeysAndStateBlocks();
     this->_keySchedule();
-    this->_setStateFromBytes(input);
-    this->_addRoundKey();
-    this->_initMainRounds();
-    this->_execFinalRounds();
-    this->_setOutputFromState(out);
+  };
+
+  Sequence<__uint8T> invoke() {
+    Sequence<__uint8T> out;
+    const __uint8T psz = (BlockSz / 0x8) - (this->_iSz % (BlockSz / 0x8));
+    out.size = this->_iSz + psz + 0x1;
+    out.data = (__uint8T *)malloc(sizeof(__uint8T) * out.size);
+    __uint64T _ctr{0};
+    while (_ctr < out.size) {
+      if (_ctr < this->_iSz) {
+        out[_ctr] = this->_dfmt.__inp_raw[_ctr];
+      } else {
+        out[_ctr] = static_cast<__uint8T>(psz);
+      }
+      ++_ctr;
+    }
+
+    if ((out.size - 1) % 16 == 0) [[likely]] {
+      for (int i = 0; i < out.size - 0x1; i += 0x10) {
+        unsigned char dblock[0x10], outblock[0x10];
+        for (int c = 0; c < 0x10; c++) {
+          dblock[c] = out[c + i];
+        }
+        
+        this->_setStateFromBytes(reinterpret_cast<__ccptrT>(dblock));
+        this->_addRoundKey();
+        this->_initMainRounds();
+        this->_execFinalRounds();
+        this->_setOutputFromState(outblock);
+        for (int x = 0; x < 0x10; x++) {
+          out[x + i] = outblock[x];
+        }
+      }
+      out[out.size - 1] = '\0';
+    }
+    return out;
   };
 
   inline ~AES_Encryption() noexcept = default;
 
 private:
-  
   __attribute__((cold, nothrow)) virtual void _generateAesConstants() noexcept {
     createSBox(SBox);
     createRCon(RCon);
@@ -521,23 +551,54 @@ public:
   inline AES_Decryption(const AES_Decryption &_c) noexcept = delete;
   inline AES_Decryption(const AES_Decryption &&_c) noexcept = delete;
 
-  inline AES_Decryption(__ccptrT input, __uint8T *out, __ccptrT key) {
+  inline AES_Decryption(__ccptrT input, __ccptrT key) {
     this->_generateAesConstants();
     this->_argValidate(input, key);
     this->_dataInitialization(input, key);
     this->_initRkeysAndStateBlocks();
     this->_keySchedule();
-    this->_setStateFromBytes(input);
-    this->_addRoundKey();
-    this->_initMainRounds();
-    this->_execFinalRounds();
-    this->_setOutputFromState(out);
+  };
+
+  Sequence<__uint8T> invoke() {
+    Sequence<__uint8T> out;
+    out.size = this->_iSz;
+    out.data = (__uint8T *)malloc(sizeof(__uint8T) * out.size);
+
+    for (int i = 0; i < this->_dfmt.__inp_raw.size; i += 0x10) {
+      unsigned char dblock[0x10], outblock[0x10];
+      for(int c = 0; c < 0x10; c++) {
+        dblock[c] = this->_dfmt.__inp_raw[c+i];
+      }
+      
+      this->_setStateFromBytes(reinterpret_cast<__ccptrT>(dblock));
+      this->_addRoundKey();
+      this->_initMainRounds();
+      this->_execFinalRounds();
+      this->_setOutputFromState(outblock);
+      for(int x = 0; x < 0x10; x++) {
+        out[i+x] = outblock[x];
+      } 
+    }
+    Sequence<__uint8T> _r;
+    _r.size = out.size+0x1;
+    const char PV = out[out.size-1];
+    char crv = PV;
+    __uint8T _PC = out.size - 0x1;
+    while((crv = out[_PC--]) == PV && --_r.size > (BlockSz / 0x08)) {
+    }
+    _r.data = (__uint8T*)malloc(sizeof(__uint8T) * _r.size);
+    _PC = 0;
+    while(_PC < _r.size) {
+      _r[_PC] = out[_PC];
+      ++_PC;
+    }
+    _r[_r.size-0x1] = '\0';
+    return _r;
   };
 
   inline ~AES_Decryption() noexcept = default;
 
 private:
-  
   __attribute__((cold, nothrow)) virtual void _generateAesConstants() noexcept {
     createInvSBox(SBox, InvSBox);
     createRCon(RCon);
