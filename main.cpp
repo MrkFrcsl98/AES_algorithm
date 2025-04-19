@@ -1,42 +1,30 @@
 #include "aes.hpp"
-#include <iostream>
 #include <iomanip>
+#include <iostream>
 
-int main()
-{
-    try
-    {
-        const char* input = {"super secret message 0123456789"};
-        const char* key = {"keykeykeykeykeykkeykeykeykeykeyk"};
-        const __uint64T byte_size = AESCrypto::getByteSize(input);
-         
+static constexpr __uint16T KEY_SIZE = 128u;
 
-       std::cout << "Original  Text(Hex)(" << std::dec << (int)byte_size << "): ";
-       for(int i = 0; i < byte_size; ++i) 
-       std::cout << std::setw(2) << std::hex << std::setfill('0') << (int)input[i] << " ";
-       std::cout << std::endl;
+int main() {
+  try {
+    const char *input         = {"super secret message 0123456789"};
+    const char *key           = {"keykeykeykeykeyk"};
+    const __uint64T byte_size = AESCrypto::getByteSize(input);
 
-       constexpr __uint16T KEY_SIZE = 128;
+    std::cout << "Original  Text(Ascii): " << input << "\n";
 
-       AESCrypto::AES_Encryption<KEY_SIZE> encryption(input, key);
-       Sequence<__uint8T> _out = encryption.invoke();
-       std::cout << "Encrypted Text(Hex)(" <<std::dec << (int)_out.size << "): ";
-       for(int i = 0; i < _out.size; ++i) 
-       std::cout << std::setw(2) << std::hex << std::setfill('0') << (int)_out[i] << " ";
-       std::cout << std::endl;
-       AESCrypto::AES_Decryption<KEY_SIZE> decryption(reinterpret_cast<__ccptrT>(_out.data), key);
-       Sequence<__uint8T> _rev = decryption.invoke();
-       std::cout << "Decrypted Text(Hex)(" << std::dec << (int)_rev.size << "): ";
-       for(int i = 0; i < _rev.size; ++i) 
-       std::cout << std::setw(2) << std::hex << std::setfill('0') << (int)_rev[i] << " ";
-       std::cout << std::endl;
+    /** Encryption */
+    AESCrypto::AES_Encryption<KEY_SIZE> encryption(input, key);
+    Sequence<__uint8T> encrypted = encryption.invoke();
+    std::cout << "Encrypted Text(Ascii): " << encrypted.data << "\n";
 
+    /** Decryption */
+    AESCrypto::AES_Decryption<KEY_SIZE> decryption(reinterpret_cast<__ccptrT>(encrypted.data), key);
+    Sequence<__uint8T> decrypted = decryption.invoke();
+    std::cout << "Decrypted Text(Ascii): " << decrypted.data << "\n";
 
-    }
-    catch (const std::exception &e)
-    {
-        std::cerr << "Error: " << e.what() << "\n";
-    }
+  } catch (const std::exception &e) {
+    std::cerr << "Error: " << e.what() << "\n";
+  }
 
-        return 0;
-    };
+  return 0;
+};
