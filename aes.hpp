@@ -2,6 +2,7 @@
 #include <algorithm>
 #include <array>
 #include <cstring>
+#include <ctime>
 #include <stdexcept>
 #include <string>
 #include <type_traits>
@@ -29,6 +30,109 @@ using byte = uint8_t;
 
 /** For GNU Compiler, optimization... */
 #ifdef __GNUC__
+
+class PRNG {
+private:
+  static constexpr std::size_t N = 624;
+  static constexpr std::size_t M = 397;
+  static constexpr std::size_t MATRIX_A = 0x9908b0dfUL;
+  static constexpr std::size_t UPPER_MASK = 0x80000000UL;
+  static constexpr std::size_t LOWER_MASK = 0x7fffffffUL;
+
+  static constexpr std::size_t MULTIPLIER = 6364136223846793005ULL;
+  static constexpr std::size_t INCREMENT = 1442695040888963407ULL;
+  static constexpr std::size_t MODULUS = (1ULL << 32);
+
+  std::size_t state;
+  std::size_t inc;
+  std::array<std::size_t, N> mt;
+  int mti;
+
+  void init_mersenne_twister(std::size_t seed) {
+    mt[0] = seed;
+    for (mti = 1; mti < N; mti++) {
+      mt[mti] = (1812433253UL * (mt[mti - 1] ^ (mt[mti - 1] >> 30)) + mti);
+    }
+  }
+
+public:
+  PRNG(std::size_t seed = std::time(nullptr), std::size_t sequence = 1) : state(seed), inc((sequence << 1) | 1), mti(N) { init_mersenne_twister(seed); };
+
+  std::size_t LCG(const std::size_t min, const std::size_t max) {
+    if (min >= max)
+      throw std::invalid_argument("min must be less than max");
+    state = (MULTIPLIER * state + INCREMENT) % MODULUS;
+    return min + (state % (max - min + 1));
+  };
+
+  std::size_t XSG(const std::size_t min, const std::size_t max) {
+    if (min >= max)
+      throw std::invalid_argument("min must be less than max");
+    state ^= state << 13; // XOR the state with itself shifted left by 13 bits
+    state ^= state >> 7;  // XOR the state with itself shifted right by 7 bits
+    state ^= state << 17; // XOR the state with itself shifted left by 17 bits
+
+    return min + (state % (max - min + 1));
+    if (min >= max)
+      throw std::invalid_argument("min must be less than max");
+    state ^= state >> 7;
+    state ^= state << 17;
+    return min + (state % (max - min + 1));
+  };
+
+  std::size_t MersenneTwister(const std::size_t min, const std::size_t max) {
+    if (min >= max)
+      throw std::invalid_argument("min must be less than max");
+    std::size_t y;
+    static const std::size_t mag01[2] = {0x0UL, MATRIX_A};
+    if (mti >= N) {
+      int kk;
+      for (kk = 0; kk < N - M; kk++) {
+        y = (mt[kk] & UPPER_MASK) | (mt[kk + 1] & LOWER_MASK);
+        mt[kk] = mt[kk + M] ^ (y >> 1) ^ mag01[y & 0x1UL];
+      }
+      for (; kk < N - 1; kk++) {
+        y = (mt[kk] & UPPER_MASK) | (mt[kk + 1] & LOWER_MASK);
+        mt[kk] = mt[kk + (M - N)] ^ (y >> 1) ^ mag01[y & 0x1UL];
+      }
+      y = (mt[N - 1] & UPPER_MASK) | (mt[0] & LOWER_MASK);
+      mt[N - 1] = mt[M - 1] ^ (y >> 1) ^ mag01[y & 0x1UL];
+      mti = 0;
+    }
+    y = mt[mti++];
+    y ^= (y >> 11);
+    y ^= (y << 7) & 0x9d2c5680UL;
+    y ^= (y << 15) & 0xefc60000UL;
+    y ^= (y >> 18);
+    return min + (y % (max - min + 1));
+  };
+
+  std::size_t PCGenerator() {
+    std::size_t oldstate = state;
+    state = oldstate * MULTIPLIER + inc;
+    std::size_t xorshifted = ((oldstate >> 18u) ^ oldstate) >> 27u;
+    std::size_t rot = oldstate >> 59u;
+    return (xorshifted >> rot) | (xorshifted << ((-rot) & 31));
+  };
+
+  std::size_t generatePC(const std::size_t min, const std::size_t max) {
+    if (min >= max)
+      throw std::invalid_argument("min must be less than max");
+    std::size_t range = max - min + 1;
+    std::size_t threshold = -range % range;
+    while (true) {
+      std::size_t r = PCGenerator();
+      if (r >= threshold) {
+        return min + (r % range);
+      }
+    }
+  };
+
+  void reseed(std::size_t new_seed) {
+    state = new_seed;
+    init_mersenne_twister(new_seed);
+  };
+};
 
 class AESUtils {
 public:
@@ -105,6 +209,20 @@ public:
     invMixCols[2] = {0x0D, 0x09, 0x0E, 0x0B};
     invMixCols[3] = {0x0B, 0x0D, 0x09, 0x0E};
   }
+
+  __attribute__((cold)) static const std::string genSecKeyBlock(const uint16_t key_size) {
+    const char alpha[26*2+12] = {'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z', '.', ',', '!', '@', '#', '$', '%', '^', '&', '*', '+', '-'};
+    if (key_size != AES128KS && key_size != AES256KS)
+      return "";
+    std::string seckey;
+    seckey.resize(key_size / 8);
+    uint16_t c = 0;
+    PRNG generator;
+    while (c < key_size / 8) {
+      seckey[c++] = alpha[generator.MersenneTwister(0, 26*2+11)];
+    }
+    return seckey;
+  };
 
   static std::array<byte, 256> SBox;
   static std::array<byte, 256> InvSBox;
