@@ -22,33 +22,29 @@ using size_t = unsigned long int;
 #define __MFAES_BLOCK_CIPHER_lbv01__ 0x01
 
 constexpr uint16_t AES128KS = (0b0001 << 0b0111);
+constexpr uint16_t AES192KS = 192;
 constexpr uint16_t AES256KS = (0b01000000 << 0b010);
 constexpr uint8_t AES128_ROUNDS = 10;
 constexpr uint8_t AES256_ROUNDS = 14;
 
 using byte = uint8_t;
 
-/** For GNU Compiler, optimization... */
+/** Apply specific improvements when compiking with GNU Compiler, optimization... */
 #ifdef __GNUC__
 
 class PRNG {
 private:
-  static constexpr std::size_t N = 624;
-  static constexpr std::size_t M = 397;
-  static constexpr std::size_t MATRIX_A = 0x9908b0dfUL;
-  static constexpr std::size_t UPPER_MASK = 0x80000000UL;
-  static constexpr std::size_t LOWER_MASK = 0x7fffffffUL;
+  static constexpr size_t N = 624;
+  static constexpr size_t M = 397;
+  static constexpr size_t MATRIX_A = 0x9908b0dfUL;
+  static constexpr size_t UPPER_MASK = 0x80000000UL;
+  static constexpr size_t LOWER_MASK = 0x7fffffffUL;
 
-  static constexpr std::size_t MULTIPLIER = 6364136223846793005ULL;
-  static constexpr std::size_t INCREMENT = 1442695040888963407ULL;
-  static constexpr std::size_t MODULUS = (1ULL << 32);
-
-  std::size_t state;
-  std::size_t inc;
-  std::array<std::size_t, N> mt;
+  size_t state;
+  std::array<size_t, N> mt;
   int mti;
 
-  void init_mersenne_twister(std::size_t seed) {
+  void init_mersenne_twister(size_t seed) {
     mt[0] = seed;
     for (mti = 1; mti < N; mti++) {
       mt[mti] = (1812433253UL * (mt[mti - 1] ^ (mt[mti - 1] >> 30)) + mti);
@@ -56,35 +52,13 @@ private:
   }
 
 public:
-  PRNG(std::size_t seed = std::time(nullptr), std::size_t sequence = 1) : state(seed), inc((sequence << 1) | 1), mti(N) { init_mersenne_twister(seed); };
+  PRNG(size_t seed = std::time(nullptr), size_t sequence = 1) : state(seed), mti(N) { init_mersenne_twister(seed); };
 
-  std::size_t LCG(const std::size_t min, const std::size_t max) {
-    if (min >= max)
+  __attribute__((cold)) const size_t MersenneTwister(const size_t min, const size_t max) {
+    if (min >= max) [[unlikely]]
       throw std::invalid_argument("min must be less than max");
-    state = (MULTIPLIER * state + INCREMENT) % MODULUS;
-    return min + (state % (max - min + 1));
-  };
-
-  std::size_t XSG(const std::size_t min, const std::size_t max) {
-    if (min >= max)
-      throw std::invalid_argument("min must be less than max");
-    state ^= state << 13; // XOR the state with itself shifted left by 13 bits
-    state ^= state >> 7;  // XOR the state with itself shifted right by 7 bits
-    state ^= state << 17; // XOR the state with itself shifted left by 17 bits
-
-    return min + (state % (max - min + 1));
-    if (min >= max)
-      throw std::invalid_argument("min must be less than max");
-    state ^= state >> 7;
-    state ^= state << 17;
-    return min + (state % (max - min + 1));
-  };
-
-  std::size_t MersenneTwister(const std::size_t min, const std::size_t max) {
-    if (min >= max)
-      throw std::invalid_argument("min must be less than max");
-    std::size_t y;
-    static const std::size_t mag01[2] = {0x0UL, MATRIX_A};
+    size_t y;
+    static const size_t mag01[2] = {0x0UL, MATRIX_A};
     if (mti >= N) {
       int kk;
       for (kk = 0; kk < N - M; kk++) {
@@ -107,28 +81,7 @@ public:
     return min + (y % (max - min + 1));
   };
 
-  std::size_t PCGenerator() {
-    std::size_t oldstate = state;
-    state = oldstate * MULTIPLIER + inc;
-    std::size_t xorshifted = ((oldstate >> 18u) ^ oldstate) >> 27u;
-    std::size_t rot = oldstate >> 59u;
-    return (xorshifted >> rot) | (xorshifted << ((-rot) & 31));
-  };
-
-  std::size_t generatePC(const std::size_t min, const std::size_t max) {
-    if (min >= max)
-      throw std::invalid_argument("min must be less than max");
-    std::size_t range = max - min + 1;
-    std::size_t threshold = -range % range;
-    while (true) {
-      std::size_t r = PCGenerator();
-      if (r >= threshold) {
-        return min + (r % range);
-      }
-    }
-  };
-
-  void reseed(std::size_t new_seed) {
+  __attribute__((cold)) void reseed(size_t new_seed) {
     state = new_seed;
     init_mersenne_twister(new_seed);
   };
@@ -211,15 +164,17 @@ public:
   }
 
   __attribute__((cold)) static const std::string genSecKeyBlock(const uint16_t key_size) {
-    const char alpha[26*2+12] = {'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z', '.', ',', '!', '@', '#', '$', '%', '^', '&', '*', '+', '-'};
-    if (key_size != AES128KS && key_size != AES256KS)
+    const char alpha[26 * 2 + 12] = {'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v',
+                                     'w', 'x', 'y', 'z', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R',
+                                     'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z', '.', ',', '!', '@', '#', '$', '%', '^', '&', '*', '+', '-'};
+    if (key_size != AES128KS && key_size != AES256KS  && key_size != AES192KS)
       return "";
     std::string seckey;
     seckey.resize(key_size / 8);
     uint16_t c = 0;
     PRNG generator;
     while (c < key_size / 8) {
-      seckey[c++] = alpha[generator.MersenneTwister(0, 26*2+11)];
+      seckey[c++] = alpha[generator.MersenneTwister(0, 26 * 2 + 11)];
     }
     return seckey;
   };
@@ -247,7 +202,7 @@ struct AesParameters {
 namespace AESCrypto {
 
 template <uint16_t BlockSz> struct IsValidBlockSize {
-  static constexpr bool value = (BlockSz == AES128KS || BlockSz == AES256KS);
+  static constexpr bool value = (BlockSz == AES128KS || BlockSz == AES192KS || BlockSz == AES256KS);
 };
 
 template <uint16_t BlockSz, typename Enable = void> class AES_Encryption;
@@ -260,7 +215,7 @@ using StateMatrixT = RoundKeysT;
 template <uint16_t BlockSz> class AesEngine<BlockSz, typename std::enable_if<IsValidBlockSize<BlockSz>::value>::type> {
 protected:
   static constexpr byte Nk = BlockSz / 32;
-  static constexpr byte Nr = BlockSz == AES128KS ? AES128_ROUNDS : AES256_ROUNDS;
+  static constexpr byte Nr = BlockSz == AES128KS ? AES128_ROUNDS : (BlockSz == AES192KS ? 12 : AES256_ROUNDS);
   size_t iSz;
   size_t kSz;
   struct AesParameters parameter;
@@ -278,7 +233,7 @@ protected:
   __attribute__((cold)) void _validateParameters(const std::string &input, const std::string &key) {
     this->iSz = input.size();
     this->kSz = key.size();
-    if (this->iSz >= UINT64_MAX || this->iSz == 0 || (this->kSz != (AES256KS / 8) && this->kSz != (AES128KS / 8))) [[unlikely]] {
+    if (this->iSz >= UINT64_MAX || this->iSz == 0 || (this->kSz != (AES256KS / 8) && this->kSz != (AES128KS / 8) && this->kSz != (AES192KS / 8))) [[unlikely]] {
       throw std::invalid_argument("invalid input or key!");
     }
   }
@@ -433,7 +388,7 @@ protected:
     std::string padded(input);
     padded.reserve(input.size() + paddingSize);
     while (padded.size() < input.size() + paddingSize) {
-      padded.push_back(static_cast<char>(paddingSize));
+      padded.push_back(static_cast<int>(paddingSize));
     }
     return padded;
   }
@@ -443,7 +398,7 @@ protected:
       return;
     }
     const uint8_t paddingSize = data.back();
-    if (paddingSize > BlockSz / 8) [[unlikely]] {
+    if (paddingSize > 128 / 8) [[unlikely]] {
       return;
     }
     data.erase(data.end() - paddingSize, data.end());
@@ -453,7 +408,7 @@ protected:
     if (input.length() % 16 == 0) [[unlikely]] {
       return input;
     }
-    const std::string paddedInput = this->_pkcs7Attach(input, BlockSz / 8);
+    const std::string paddedInput = this->_pkcs7Attach(input, 128 / 8);
     this->iSz = paddedInput.size();
     return paddedInput;
   }
@@ -461,17 +416,19 @@ protected:
 
 template <uint16_t BlockSz> class AES_Encryption<BlockSz, typename std::enable_if<IsValidBlockSize<BlockSz>::value>::type> : public AesEngine<BlockSz> {
 public:
-  AES_Encryption() noexcept = delete;
+  AES_Encryption() noexcept = default;
   AES_Encryption(const AES_Encryption &) noexcept = delete;
   AES_Encryption(AES_Encryption &&) noexcept = delete;
 
-  AES_Encryption(const std::string &input, std::vector<byte> &out, const std::string &key) {
+  __attribute__((cold)) const std::vector<byte> call(const std::string &input, const std::string &key) {
     this->_generateAesConstants();
     this->_validateParameters(input, key);
     this->_bindParameters(this->_addPadding(input), key);
     this->_stateInitialization();
     this->_keySchedule();
-    this->_applyRijndaelTrasformation(out);
+    std::vector<byte> result;
+    this->_applyRijndaelTrasformation(result);
+    return result;
   };
 
   ~AES_Encryption() noexcept override = default;
@@ -511,18 +468,20 @@ private:
 };
 template <uint16_t BlockSz> class AES_Decryption<BlockSz, typename std::enable_if<IsValidBlockSize<BlockSz>::value>::type> : public AesEngine<BlockSz> {
 public:
-  AES_Decryption() noexcept = delete;
+  AES_Decryption() noexcept = default;
   AES_Decryption(const AES_Decryption &) noexcept = delete;
   AES_Decryption(AES_Decryption &&) noexcept = delete;
 
-  AES_Decryption(const std::string &input, std::vector<byte> &out, const std::string &key) {
+  __attribute__((cold)) const std::vector<byte> call(const std::string &input, const std::string &key) {
     this->_generateAesConstants();
     this->_validateParameters(input, key);
     this->_bindParameters(input, key);
     this->_stateInitialization();
     this->_keySchedule();
-    this->_applyRijndaelTrasformation(out);
-    this->_pkcs7Dettach(out);
+    std::vector<byte> result;
+    this->_applyRijndaelTrasformation(result);
+    this->_pkcs7Dettach(result);
+    return result;
   }
   ~AES_Decryption() noexcept override = default;
 
@@ -565,6 +524,61 @@ private:
 
 /** No GNU compiler... */
 #else
+
+class PRNG {
+private:
+  static constexpr size_t N = 624;
+  static constexpr size_t M = 397;
+  static constexpr size_t MATRIX_A = 0x9908b0dfUL;
+  static constexpr size_t UPPER_MASK = 0x80000000UL;
+  static constexpr size_t LOWER_MASK = 0x7fffffffUL;
+
+  size_t state;
+  std::array<size_t, N> mt;
+  int mti;
+
+  void init_mersenne_twister(size_t seed) {
+    mt[0] = seed;
+    for (mti = 1; mti < N; mti++) {
+      mt[mti] = (1812433253UL * (mt[mti - 1] ^ (mt[mti - 1] >> 30)) + mti);
+    }
+  }
+
+public:
+  PRNG(size_t seed = std::time(nullptr), size_t sequence = 1) : state(seed), mti(N) { init_mersenne_twister(seed); };
+
+  const size_t MersenneTwister(const size_t min, const size_t max) {
+    if (min >= max) [[unlikely]]
+      throw std::invalid_argument("min must be less than max");
+    size_t y;
+    static const size_t mag01[2] = {0x0UL, MATRIX_A};
+    if (mti >= N) {
+      int kk;
+      for (kk = 0; kk < N - M; kk++) {
+        y = (mt[kk] & UPPER_MASK) | (mt[kk + 1] & LOWER_MASK);
+        mt[kk] = mt[kk + M] ^ (y >> 1) ^ mag01[y & 0x1UL];
+      }
+      for (; kk < N - 1; kk++) {
+        y = (mt[kk] & UPPER_MASK) | (mt[kk + 1] & LOWER_MASK);
+        mt[kk] = mt[kk + (M - N)] ^ (y >> 1) ^ mag01[y & 0x1UL];
+      }
+      y = (mt[N - 1] & UPPER_MASK) | (mt[0] & LOWER_MASK);
+      mt[N - 1] = mt[M - 1] ^ (y >> 1) ^ mag01[y & 0x1UL];
+      mti = 0;
+    }
+    y = mt[mti++];
+    y ^= (y >> 11);
+    y ^= (y << 7) & 0x9d2c5680UL;
+    y ^= (y << 15) & 0xefc60000UL;
+    y ^= (y >> 18);
+    return min + (y % (max - min + 1));
+  };
+
+  void reseed(size_t new_seed) {
+    state = new_seed;
+    init_mersenne_twister(new_seed);
+  };
+};
 
 class AESUtils {
 public:
