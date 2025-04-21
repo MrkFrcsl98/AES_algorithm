@@ -7,12 +7,15 @@
 #include <string>
 #include <type_traits>
 #include <vector>
+#include <iostream>
 
 #ifndef __MFAES_BLOCK_CIPHER_lbv01__
 #define __MFAES_BLOCK_CIPHER_lbv01__ 0x01
 
 constexpr uint16_t AES128KS = (0b0001 << 0b0111);
 constexpr uint16_t AES256KS = (0b01000000 << 0b010);
+constexpr uint8_t AES128_ROUNDS = 10;
+constexpr uint8_t AES256_ROUNDS = 14;
 
 using byte = uint8_t;
 
@@ -25,7 +28,7 @@ public:
 
   static constexpr byte galloisFieldMultiplication(byte a, byte b) noexcept {
     byte p = 0;
-    for (int i = 0; i < 8; ++i) {
+    for (uint8_t i = 0; i < 8; ++i) {
       if (b & 1) {
         p ^= a;
       }
@@ -41,7 +44,7 @@ public:
 
   static constexpr byte galloisFieldInverse(byte x) noexcept {
     byte y = x;
-    for (int i = 0; i < 4; ++i) {
+    for (uint8_t i = 0; i < 4; ++i) {
       y = galloisFieldMultiplication(y, y);
       y = galloisFieldMultiplication(y, x);
     }
@@ -50,7 +53,7 @@ public:
 
   static constexpr byte affineTransform(byte x) noexcept {
     byte result = 0x63;
-    for (int i = 0; i < 8; ++i) {
+    for (uint8_t i = 0; i < 8; ++i) {
       result ^= (x >> i) & 1 ? (0xF1 >> (7 - i)) & 0xFF : 0;
     }
     return result;
@@ -59,20 +62,20 @@ public:
   static constexpr byte createSBoxEntry(byte x) noexcept { return affineTransform(galloisFieldInverse(x)); }
 
   static constexpr void createSBox(std::array<byte, 256> &sbox) noexcept {
-    for (int i = 0; i < 256; ++i) {
+    for (uint8_t i = 0; i < 256; ++i) {
       sbox[i] = createSBoxEntry(static_cast<byte>(i));
     }
   }
 
   static constexpr void createInvSBox(const std::array<byte, 256> &sbox, std::array<byte, 256> &invSbox) noexcept {
-    for (int i = 0; i < 256; ++i) {
+    for (uint8_t i = 0; i < 256; ++i) {
       invSbox[sbox[i]] = static_cast<byte>(i);
     }
   }
 
   static constexpr void createRCon(std::array<byte, 256> &rcon) noexcept {
     byte c = 1;
-    for (int i = 0; i < 256; ++i) {
+    for (uint8_t i = 0; i < 256; ++i) {
       rcon[i] = c;
       c = galloisFieldMultiplication(c, 0x02);
     }
@@ -128,7 +131,7 @@ using StateMatrixT = RoundKeysT;
 template <uint16_t BlockSz> class AesEngine<BlockSz, typename std::enable_if<IsValidBlockSize<BlockSz>::value>::type> {
 protected:
   static constexpr byte Nk = BlockSz / 32;
-  static constexpr byte Nr = BlockSz == AES128KS ? 10 : (BlockSz == AES256KS ? 14 : 0);
+  static constexpr byte Nr = BlockSz == AES128KS ? AES128_ROUNDS : AES256_ROUNDS;
   size_t iSz;
   size_t kSz;
   struct AesParameters parameter;
@@ -220,19 +223,19 @@ protected:
   }
 
   inline void _shiftRows() noexcept {
-    for (int i = 1; i < Nb; ++i) {
+    for (uint8_t i = 1; i < Nb; ++i) {
       this->_keyRotate(this->state_matrix[i], i);
     }
   }
 
   inline void _invShiftRows() noexcept {
-    for (int i = 1; i < Nb; ++i) {
+    for (uint8_t i = 1; i < Nb; ++i) {
       this->_keyRotate(this->state_matrix[Nb - i], i);
     }
   }
 
   inline void _mixColumns() noexcept {
-    for (int i = 0; i < Nb; ++i) {
+    for (uint8_t i = 0; i < Nb; ++i) {
       std::array<byte, 4> temp;
       temp[0] = __gfmultip2(this->state_matrix[0][i]) ^ __gfmultip3(this->state_matrix[1][i]) ^ this->state_matrix[2][i] ^ this->state_matrix[3][i];
       temp[1] = this->state_matrix[0][i] ^ __gfmultip2(this->state_matrix[1][i]) ^ __gfmultip3(this->state_matrix[2][i]) ^ this->state_matrix[3][i];
@@ -245,7 +248,7 @@ protected:
   }
 
   inline void _invMixColumns() noexcept {
-    for (int i = 0; i < Nb; ++i) {
+    for (uint8_t i = 0; i < Nb; ++i) {
       std::array<byte, 4> temp;
       temp[0] = __gfmultip14(this->state_matrix[0][i]) ^ __gfmultip11(this->state_matrix[1][i]) ^ __gfmultip13(this->state_matrix[2][i]) ^ __gfmultip9(this->state_matrix[3][i]);
       temp[1] = __gfmultip9(this->state_matrix[0][i]) ^ __gfmultip14(this->state_matrix[1][i]) ^ __gfmultip11(this->state_matrix[2][i]) ^ __gfmultip13(this->state_matrix[3][i]);
@@ -283,15 +286,15 @@ protected:
   }
 
   inline void _setOutput(std::vector<byte> &out) noexcept {
-    for (int i = 0; i < 4; ++i) {
-      for (int j = 0; j < Nb; ++j) {
+    for (uint8_t i = 0; i < 4; ++i) {
+      for (uint8_t j = 0; j < Nb; ++j) {
         out[i + 4 * j] = this->state_matrix[i][j];
       }
     }
   }
 
-  inline std::string _pkcs7Attach(const std::string &input, size_t blockSize) {
-    size_t paddingSize = blockSize - (input.size() % blockSize);
+  inline std::string _pkcs7Attach(const std::string &input, size_t blockSize) noexcept {
+    uint8_t paddingSize = blockSize - (input.size() % blockSize);
     std::string padded(input);
     padded.reserve(input.size() + paddingSize);
     while (padded.size() < input.size() + paddingSize) {
@@ -300,18 +303,21 @@ protected:
     return padded;
   }
 
-  inline void _pkcs7Dettach(std::vector<uint8_t> &data) {
+  inline void _pkcs7Dettach(std::vector<uint8_t> &data) noexcept {
     if (data.empty()) [[unlikely]] {
-      throw std::invalid_argument("Data is empty, cannot remove padding.");
+      return;
     }
-    size_t paddingSize = data.back();
-    if (paddingSize > data.size()) [[unlikely]] {
-      throw std::invalid_argument("Invalid padding size.");
+    const uint8_t paddingSize = data.back();
+    if (paddingSize > BlockSz / 8) [[unlikely]] {
+      return;
     }
     data.erase(data.end() - paddingSize, data.end());
   }
 
-  inline const std::string _addPadding(const std::string &input) {
+  inline const std::string _addPadding(const std::string &input) noexcept {
+    if(input.length() % 16 == 0) [[unlikely]] {
+      return input;
+    }
     const std::string paddedInput = this->_pkcs7Attach(input, BlockSz / 8);
     this->iSz = paddedInput.size();
     return paddedInput;
@@ -338,8 +344,8 @@ public:
 private:
   void _applyRijndaelTrasformation(std::vector<byte> &out) {
     std::vector<byte> tmpOut(16);
-    for (size_t i = 0; i < this->parameter.data.size(); i += 16) {
-      std::string dblock(this->parameter.data.begin() + i, this->parameter.data.begin() + i + 16);
+    for (uint8_t i = 0; i < this->parameter.data.size(); i += 16) {
+      const std::string dblock(this->parameter.data.begin() + i, this->parameter.data.begin() + i + 16);
       this->_initStateMatrix(dblock);
       this->_addRoundKey(0);
       this->_initMainRounds();
@@ -387,8 +393,8 @@ public:
 
 private:
   void _applyRijndaelTrasformation(std::vector<byte> &out) {
-    for (size_t i = 0; i < this->parameter.data.size(); i += 16) {
-      std::string dblock(this->parameter.data.begin() + i, this->parameter.data.begin() + i + 16);
+    for (uint8_t i = 0; i < this->parameter.data.size(); i += 16) {
+      const std::string dblock(this->parameter.data.begin() + i, this->parameter.data.begin() + i + 16);
       this->_initStateMatrix(dblock);
       this->_addRoundKey(0);
       this->_initMainRounds();
