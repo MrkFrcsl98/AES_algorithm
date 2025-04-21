@@ -2,29 +2,70 @@
 #include <iomanip>
 #include <iostream>
 
-static constexpr __uint16T KEY_SIZE = 128u;
-
 int main() {
   try {
-    const char *input         = {"super secret message 0123456789"};
-    const char *key           = {"keykeykeykeykeyk"};
-    const __uint64T byte_size = AESCrypto::getByteSize(input);
+    std::string plaintext = "this";
+    std::string keyAES128 = "ThisIsASecretKey";
+    std::string keyAES256 = "ThisIsASecretKeyThisIsASecretKey";
 
-    std::cout << "Original  Text(Ascii): " << input << "\n";
+    // Print plaintext data
+    std::cout << "Plaintext(Hex):        ";
+    for (byte b : plaintext) {
+      std::cout << std::hex << std::setw(2) << std::setfill('0') << (int)b << " ";
+    }
+    std::cout << "\n" << std::endl;
 
-    /** Encryption */
-    AESCrypto::AES_Encryption<KEY_SIZE> encryption(input, key);
-    Sequence<__uint8T> encrypted = encryption.invoke();
-    std::cout << "Encrypted Text(Ascii): " << encrypted.data << "\n";
+    { // Encrypt
+      std::vector<byte> encryptedData;
+      AESCrypto::AES_Encryption<AES128KS> encryptor(plaintext, encryptedData, keyAES128);
 
-    /** Decryption */
-    AESCrypto::AES_Decryption<KEY_SIZE> decryption(reinterpret_cast<__ccptrT>(encrypted.data), key);
-    Sequence<__uint8T> decrypted = decryption.invoke();
-    std::cout << "Decrypted Text(Ascii): " << decrypted.data << "\n";
+      // Print encrypted data
+      std::cout << "AES128 Encrypted(Hex): ";
+      for (byte b : encryptedData) {
+        std::cout << std::hex << std::setw(2) << std::setfill('0') << (int)b << " ";
+      }
+      std::cout << std::endl;
 
+      // Decrypt
+      std::vector<byte> decryptedData;
+      std::string encryptedData2(encryptedData.begin(), encryptedData.end());
+      AESCrypto::AES_Decryption<AES128KS> decryptor(encryptedData2, decryptedData, keyAES128);
+
+      // Print decrypted data
+      std::cout << "AES128 Decrypted(Hex): ";
+      for (byte b : decryptedData) {
+        std::cout << std::hex << std::setw(2) << std::setfill('0') << (int)b << " ";
+      }
+      std::cout << "\n" << std::endl;
+    }
+
+    { // Encrypt
+      std::vector<byte> encryptedData;
+      AESCrypto::AES_Encryption<AES256KS> encryptor(plaintext, encryptedData, keyAES256);
+
+      // Print encrypted data
+      std::cout << "AES256 Encrypted(Hex): ";
+      for (byte b : encryptedData) {
+        std::cout << std::hex << std::setw(2) << std::setfill('0') << (int)b << " ";
+      }
+      std::cout << std::endl;
+
+      // Decrypt
+      std::vector<byte> decryptedData;
+      std::string encryptedData2(encryptedData.begin(), encryptedData.end());
+      AESCrypto::AES_Decryption<AES256KS> decryptor(encryptedData2, decryptedData, keyAES256);
+
+      // Print decrypted data
+      std::cout << "AES256 Decrypted(Hex): ";
+      for (byte b : decryptedData) {
+        std::cout << std::hex << std::setw(2) << std::setfill('0') << (int)b << " ";
+      }
+      std::cout << std::endl;
+    }
+
+    return 0;
   } catch (const std::exception &e) {
-    std::cerr << "Error: " << e.what() << "\n";
+    std::cerr << "Error: " << e.what() << std::endl;
+    return 1;
   }
-
-  return 0;
-};
+}
