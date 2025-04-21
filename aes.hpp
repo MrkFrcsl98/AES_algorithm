@@ -16,92 +16,101 @@ constexpr uint16_t AES256KS = (0b01000000 << 0b010);
 
 using byte = uint8_t;
 
-inline constexpr byte galloisFieldMultiplication(byte a, byte b) noexcept {
-  byte p = 0;
-  for (int i = 0; i < 8; ++i) {
-    if (b & 1) {
-      p ^= a;
+class AESUtils {
+public:
+  AESUtils() = default;
+  AESUtils(const AESUtils &c) = delete;
+  AESUtils(AESUtils &&c) = delete;
+  ~AESUtils() = default;
+
+  static constexpr byte galloisFieldMultiplication(byte a, byte b) noexcept {
+    byte p = 0;
+    for (int i = 0; i < 8; ++i) {
+      if (b & 1) {
+        p ^= a;
+      }
+      bool hiBitSet = (a & 0x80);
+      a <<= 1;
+      if (hiBitSet) {
+        a ^= 0x1B; // 0x1B is the irreducible polynomial for AES
+      }
+      b >>= 1;
     }
-    bool hiBitSet = (a & 0x80);
-    a <<= 1;
-    if (hiBitSet) {
-      a ^= 0x1B; // 0x1B is the irreducible polynomial for AES
+    return p;
+  }
+
+  static constexpr byte galloisFieldInverse(byte x) noexcept {
+    byte y = x;
+    for (int i = 0; i < 4; ++i) {
+      y = galloisFieldMultiplication(y, y);
+      y = galloisFieldMultiplication(y, x);
     }
-    b >>= 1;
+    return y;
   }
-  return p;
-}
 
-inline constexpr byte galloisFieldInverse(byte x) noexcept {
-  byte y = x;
-  for (int i = 0; i < 4; ++i) {
-    y = galloisFieldMultiplication(y, y);
-    y = galloisFieldMultiplication(y, x);
+  static constexpr byte affineTransform(byte x) noexcept {
+    byte result = 0x63;
+    for (int i = 0; i < 8; ++i) {
+      result ^= (x >> i) & 1 ? (0xF1 >> (7 - i)) & 0xFF : 0;
+    }
+    return result;
   }
-  return y;
-}
 
-inline constexpr byte affineTransform(byte x) noexcept {
-  byte result = 0x63;
-  for (int i = 0; i < 8; ++i) {
-    result ^= (x >> i) & 1 ? (0xF1 >> (7 - i)) & 0xFF : 0;
+  static constexpr byte createSBoxEntry(byte x) noexcept { return affineTransform(galloisFieldInverse(x)); }
+
+  static constexpr void createSBox(std::array<byte, 256> &sbox) noexcept {
+    for (int i = 0; i < 256; ++i) {
+      sbox[i] = createSBoxEntry(static_cast<byte>(i));
+    }
   }
-  return result;
-}
 
-inline constexpr byte createSBoxEntry(byte x) noexcept { return affineTransform(galloisFieldInverse(x)); }
-
-inline constexpr void createSBox(std::array<byte, 256> &sbox) noexcept {
-  for (int i = 0; i < 256; ++i) {
-    sbox[i] = createSBoxEntry(static_cast<byte>(i));
+  static constexpr void createInvSBox(const std::array<byte, 256> &sbox, std::array<byte, 256> &invSbox) noexcept {
+    for (int i = 0; i < 256; ++i) {
+      invSbox[sbox[i]] = static_cast<byte>(i);
+    }
   }
-}
 
-inline constexpr void createInvSBox(const std::array<byte, 256> &sbox, std::array<byte, 256> &invSbox) noexcept {
-  for (int i = 0; i < 256; ++i) {
-    invSbox[sbox[i]] = static_cast<byte>(i);
+  static constexpr void createRCon(std::array<byte, 256> &rcon) noexcept {
+    byte c = 1;
+    for (int i = 0; i < 256; ++i) {
+      rcon[i] = c;
+      c = galloisFieldMultiplication(c, 0x02);
+    }
   }
-}
 
-inline constexpr void createRCon(std::array<byte, 256> &rcon) noexcept {
-  byte c = 1;
-  for (int i = 0; i < 256; ++i) {
-    rcon[i] = c;
-    c = galloisFieldMultiplication(c, 0x02);
+  static constexpr void createMixCols(std::array<std::array<byte, 4>, 4> &mixCols) noexcept {
+    mixCols[0] = {0x02, 0x03, 0x01, 0x01};
+    mixCols[1] = {0x01, 0x02, 0x03, 0x01};
+    mixCols[2] = {0x01, 0x01, 0x02, 0x03};
+    mixCols[3] = {0x03, 0x01, 0x01, 0x02};
   }
-}
 
-inline constexpr void createMixCols(std::array<std::array<byte, 4>, 4> &mixCols) noexcept {
-  mixCols[0] = {0x02, 0x03, 0x01, 0x01};
-  mixCols[1] = {0x01, 0x02, 0x03, 0x01};
-  mixCols[2] = {0x01, 0x01, 0x02, 0x03};
-  mixCols[3] = {0x03, 0x01, 0x01, 0x02};
-}
+  static constexpr void createInvMixCols(std::array<std::array<byte, 4>, 4> &invMixCols) noexcept {
+    invMixCols[0] = {0x0E, 0x0B, 0x0D, 0x09};
+    invMixCols[1] = {0x09, 0x0E, 0x0B, 0x0D};
+    invMixCols[2] = {0x0D, 0x09, 0x0E, 0x0B};
+    invMixCols[3] = {0x0B, 0x0D, 0x09, 0x0E};
+  }
 
-inline constexpr void createInvMixCols(std::array<std::array<byte, 4>, 4> &invMixCols) noexcept {
-  invMixCols[0] = {0x0E, 0x0B, 0x0D, 0x09};
-  invMixCols[1] = {0x09, 0x0E, 0x0B, 0x0D};
-  invMixCols[2] = {0x0D, 0x09, 0x0E, 0x0B};
-  invMixCols[3] = {0x0B, 0x0D, 0x09, 0x0E};
-}
+  static std::array<byte, 256> SBox;
+  static std::array<byte, 256> InvSBox;
+  static std::array<byte, 256> RCon;
+  static std::array<std::array<byte, 4>, 4> MixCols;
+  static std::array<std::array<byte, 4>, 4> InvMixCols;
+};
 
-static std::array<byte, 256> SBox;
-static std::array<byte, 256> InvSBox;
-static std::array<byte, 256> RCon;
-static std::array<std::array<byte, 4>, 4> MixCols;
-static std::array<std::array<byte, 4>, 4> InvMixCols;
+std::array<byte, 256> AESUtils::SBox = {};
+std::array<byte, 256> AESUtils::InvSBox = {};
+std::array<byte, 256> AESUtils::RCon = {};
+std::array<std::array<byte, 4>, 4> AESUtils::MixCols = {};
+std::array<std::array<byte, 4>, 4> AESUtils::InvMixCols = {};
 
 constexpr unsigned short int Nb = (0b0001 << 0b0010);
 constexpr unsigned short int AES128_BLOCK_CIPHER = (0b0001 << 0b0111);
-
-#endif
-
-struct AesDtConvFmt {
+struct AesParameters {
   std::vector<uint16_t> data;
   std::vector<uint16_t> key;
 };
-
-#ifdef __MFAES_BLOCK_CIPHER_lbv01__
 
 namespace AESCrypto {
 
@@ -113,8 +122,8 @@ template <uint16_t BlockSz, typename Enable = void> class AES_Encryption;
 template <uint16_t BlockSz, typename Enable = void> class AES_Decryption;
 template <uint16_t BlockSz, typename Enable = void> class AesEngine;
 
-using rkBlockT = std::vector<std::vector<byte>>;
-using stateMtxT = rkBlockT;
+using RoundKeysT = std::vector<std::vector<byte>>;
+using StateMatrixT = RoundKeysT;
 
 template <uint16_t BlockSz> class AesEngine<BlockSz, typename std::enable_if<IsValidBlockSize<BlockSz>::value>::type> {
 protected:
@@ -122,42 +131,37 @@ protected:
   static constexpr byte Nr = BlockSz == AES128KS ? 10 : (BlockSz == AES256KS ? 14 : 0);
   size_t iSz;
   size_t kSz;
-  AesDtConvFmt parameter;
-  rkBlockT round_keys;
-  stateMtxT state_matrix;
+  struct AesParameters parameter;
+  RoundKeysT round_keys;
+  StateMatrixT state_matrix;
 
 public:
   AesEngine() noexcept = default;
   AesEngine(const AesEngine &) noexcept = delete;
   AesEngine(AesEngine &&) noexcept = delete;
-  AesEngine(const std::string &input, const std::string &key) {
-    _validateParameter(input, key);
-    _dataInitialization(input, key);
-    _initializeRkeysAndStateMatrix();
-    _keySchedule();
-  }
-  virtual ~AesEngine() noexcept { _internMemRelease(); }
+
+  virtual ~AesEngine() noexcept { _eraseData(); }
 
 protected:
-  void _validateParameter(const std::string &input, const std::string &key) {
+  void _validateParameters(const std::string &input, const std::string &key) {
     iSz = input.size();
     kSz = key.size();
-    if (iSz == 0 || kSz == 0 || kSz > (AES256KS / 8)) {
+    if (iSz == 0 || kSz == 0 || kSz > (AES256KS / 8)) [[unlikely]] {
       throw std::invalid_argument("invalid input or key!");
     }
   }
 
-  inline void _dataInitialization(const std::string &input, const std::string &key) {
+  inline void _bindParameters(const std::string &input, const std::string &key) {
     parameter.data.assign(input.begin(), input.end());
     parameter.key.assign(key.begin(), key.end());
   }
 
-  inline void _initializeRkeysAndStateMatrix() {
+  inline void _stateInitialization() {
     state_matrix.resize(Nr + 1, std::vector<byte>(Nb));
     round_keys.resize((Nr + 1) * Nb, std::vector<byte>(Nb));
   }
 
-  inline void _internMemRelease() noexcept {
+  inline void _eraseData() noexcept {
     state_matrix.clear();
     round_keys.clear();
   }
@@ -171,11 +175,11 @@ protected:
     for (uint16_t i = Nk; i < ((Nr + 1) * Nb); ++i) {
       std::vector<byte> TRK = round_keys[i - 1];
       if (i % Nk == 0) {
-        _roundKeyRotation(TRK, 1);
-        std::transform(TRK.begin(), TRK.end(), TRK.begin(), [](byte b) { return SBox[b]; });
-        TRK[0] ^= RCon[i / Nk];
+        _keyRotate(TRK, 1);
+        std::transform(TRK.begin(), TRK.end(), TRK.begin(), [](byte b) { return AESUtils::SBox[b]; });
+        TRK[0] ^= AESUtils::RCon[i / Nk];
       } else if (Nk > 6 && (i % Nk == 4)) {
-        std::transform(TRK.begin(), TRK.end(), TRK.begin(), [](byte b) { return SBox[b]; });
+        std::transform(TRK.begin(), TRK.end(), TRK.begin(), [](byte b) { return AESUtils::SBox[b]; });
       }
       for (byte j = 0; j < TRK.size(); ++j) {
         round_keys[i][j] = round_keys[i - Nk][j] ^ TRK[j];
@@ -183,11 +187,11 @@ protected:
     }
   }
 
-  inline void _roundKeyRotation(std::vector<byte> &data, size_t positions) {
-    if (data.empty())
+  inline void _keyRotate(std::vector<byte> &data, size_t positions) {
+    if (data.empty()) [[unlikely]]
       return;
     positions %= data.size();
-    if (positions == 0)
+    if (positions == 0) [[unlikely]]
       return;
 
     std::reverse(data.begin(), data.begin() + positions);
@@ -205,25 +209,25 @@ protected:
 
   inline void _subBytes() noexcept {
     for (auto &row : state_matrix) {
-      std::transform(row.begin(), row.end(), row.begin(), [](byte b) { return SBox[b]; });
+      std::transform(row.begin(), row.end(), row.begin(), [](byte b) { return AESUtils::SBox[b]; });
     }
   }
 
   inline void _invSubBytes() noexcept {
     for (auto &row : state_matrix) {
-      std::transform(row.begin(), row.end(), row.begin(), [](byte b) { return InvSBox[b]; });
+      std::transform(row.begin(), row.end(), row.begin(), [](byte b) { return AESUtils::InvSBox[b]; });
     }
   }
 
   inline void _shiftRows() noexcept {
     for (int i = 1; i < Nb; ++i) {
-      _roundKeyRotation(state_matrix[i], i);
+      _keyRotate(state_matrix[i], i);
     }
   }
 
   inline void _invShiftRows() noexcept {
     for (int i = 1; i < Nb; ++i) {
-      _roundKeyRotation(state_matrix[Nb - i], i);
+      _keyRotate(state_matrix[Nb - i], i);
     }
   }
 
@@ -263,13 +267,14 @@ protected:
   virtual void _execMainRounds() {};
   virtual void _execFinalRounds() {};
   virtual void _generateAesConstants() noexcept {};
+  virtual void _applyRijndaelTrasformation() {};
   inline void _initMainRounds() {
     for (int r = 1; r < Nr; ++r) {
       _execMainRounds();
     }
   }
 
-  inline void _setStateFromBytes(const std::string &bytes) noexcept {
+  inline void _initStateMatrix(const std::string &bytes) noexcept {
     for (byte r = 0; r < Nb; ++r) {
       for (byte c = 0; c < Nb; ++c) {
         state_matrix[r][c] = bytes[r + Nb * c];
@@ -277,7 +282,7 @@ protected:
     }
   }
 
-  inline void _setOutputFromState(std::vector<byte> &out) noexcept {
+  inline void _setOutput(std::vector<byte> &out) noexcept {
     for (int i = 0; i < 4; ++i) {
       for (int j = 0; j < Nb; ++j) {
         out[i + 4 * j] = state_matrix[i][j];
@@ -296,14 +301,20 @@ protected:
   }
 
   inline void _pkcs7Dettach(std::vector<uint8_t> &data) {
-    if (data.empty()) {
+    if (data.empty()) [[unlikely]] {
       throw std::invalid_argument("Data is empty, cannot remove padding.");
     }
     size_t paddingSize = data.back();
-    if (paddingSize > data.size()) {
+    if (paddingSize > data.size()) [[unlikely]] {
       throw std::invalid_argument("Invalid padding size.");
     }
     data.erase(data.end() - paddingSize, data.end());
+  }
+
+  inline const std::string _addPadding(const std::string &input) {
+    const std::string paddedInput = this->_pkcs7Attach(input, BlockSz / 8);
+    this->iSz = paddedInput.size();
+    return paddedInput;
   }
 };
 
@@ -315,33 +326,33 @@ public:
 
   AES_Encryption(const std::string &input, std::vector<byte> &out, const std::string &key) {
     this->_generateAesConstants();
-    this->_validateParameter(input, key);
-    std::string paddedInput = this->_pkcs7Attach(input, BlockSz / 8);
-
-    this->iSz = paddedInput.size();
-    this->_dataInitialization(paddedInput, key);
-    this->_initializeRkeysAndStateMatrix();
+    this->_validateParameters(input, key);
+    this->_bindParameters(this->_addPadding(input), key);
+    this->_stateInitialization();
     this->_keySchedule();
-
-    std::vector<byte> tmpOut(16);
-    for (size_t i = 0; i < this->parameter.data.size(); i += 16) {
-      std::string dblock(this->parameter.data.begin() + i, this->parameter.data.begin() + i + 16);
-      this->_setStateFromBytes(dblock);
-      this->_addRoundKey(0);
-      this->_initMainRounds();
-      this->_execFinalRounds();
-      this->_setOutputFromState(tmpOut);
-      out.insert(out.end(), tmpOut.begin(), tmpOut.end());
-    }
+    this->_applyRijndaelTrasformation(out);
   };
 
   ~AES_Encryption() noexcept override = default;
 
 private:
+  void _applyRijndaelTrasformation(std::vector<byte> &out) {
+    std::vector<byte> tmpOut(16);
+    for (size_t i = 0; i < this->parameter.data.size(); i += 16) {
+      std::string dblock(this->parameter.data.begin() + i, this->parameter.data.begin() + i + 16);
+      this->_initStateMatrix(dblock);
+      this->_addRoundKey(0);
+      this->_initMainRounds();
+      this->_execFinalRounds();
+      this->_setOutput(tmpOut);
+      out.insert(out.end(), tmpOut.begin(), tmpOut.end());
+    }
+  };
+
   void _generateAesConstants() noexcept override {
-    createSBox(SBox);
-    createRCon(RCon);
-    createMixCols(MixCols);
+    AESUtils::createSBox(AESUtils::SBox);
+    AESUtils::createRCon(AESUtils::RCon);
+    AESUtils::createMixCols(AESUtils::MixCols);
   }
 
   void _execMainRounds() override {
@@ -365,31 +376,32 @@ public:
 
   AES_Decryption(const std::string &input, std::vector<byte> &out, const std::string &key) {
     this->_generateAesConstants();
-    this->_validateParameter(input, key);
-    this->_dataInitialization(input, key);
-    this->_initializeRkeysAndStateMatrix();
+    this->_validateParameters(input, key);
+    this->_bindParameters(input, key);
+    this->_stateInitialization();
     this->_keySchedule();
-
-    for (size_t i = 0; i < this->parameter.data.size(); i += 16) {
-      std::string dblock(this->parameter.data.begin() + i, this->parameter.data.begin() + i + 16);
-      this->_setStateFromBytes(dblock);
-      this->_addRoundKey(0);
-      this->_initMainRounds();
-      this->_execFinalRounds();
-      std::vector<byte> tmp(16);
-      this->_setOutputFromState(tmp);
-      out.insert(out.end(), tmp.begin(), tmp.end());
-    }
-
+    this->_applyRijndaelTrasformation(out);
     this->_pkcs7Dettach(out);
   }
   ~AES_Decryption() noexcept override = default;
 
 private:
+  void _applyRijndaelTrasformation(std::vector<byte> &out) {
+    for (size_t i = 0; i < this->parameter.data.size(); i += 16) {
+      std::string dblock(this->parameter.data.begin() + i, this->parameter.data.begin() + i + 16);
+      this->_initStateMatrix(dblock);
+      this->_addRoundKey(0);
+      this->_initMainRounds();
+      this->_execFinalRounds();
+      std::vector<byte> tmp(16);
+      this->_setOutput(tmp);
+      out.insert(out.end(), tmp.begin(), tmp.end());
+    }
+  }
   void _generateAesConstants() noexcept override {
-    createInvSBox(SBox, InvSBox);
-    createRCon(RCon);
-    createInvMixCols(InvMixCols);
+    AESUtils::createInvSBox(AESUtils::SBox, AESUtils::InvSBox);
+    AESUtils::createRCon(AESUtils::RCon);
+    AESUtils::createInvMixCols(AESUtils::InvMixCols);
   }
 
   void _execMainRounds() override {
