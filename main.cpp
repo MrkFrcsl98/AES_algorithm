@@ -4,7 +4,7 @@
 
 int main() {
   try {
-    std::string plaintext = "this";
+    std::string plaintext = "this is a secret message!";
     std::string keyAES128 = "ThisIsASecretKey";
     std::string keyAES256 = "ThisIsASecretKeyThisIsASecretKey";
 
@@ -15,6 +15,7 @@ int main() {
     }
     std::cout << "\n" << std::endl;
 
+    // ---------------- AES 128 Encryption ---------------------
     { // Encrypt
       std::vector<byte> encryptedData;
       AESCrypto::AES_Encryption<AES128KS> encryptor(plaintext, encryptedData, keyAES128);
@@ -39,6 +40,8 @@ int main() {
       std::cout << "\n" << std::endl;
     }
 
+
+    // ---------------- AES 256 Encryption ---------------------
     { // Encrypt
       std::vector<byte> encryptedData;
       AESCrypto::AES_Encryption<AES256KS> encryptor(plaintext, encryptedData, keyAES256);
