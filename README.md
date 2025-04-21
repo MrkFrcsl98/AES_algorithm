@@ -1,121 +1,140 @@
 # AES Algorithm
 
 Does not implement prevention against side channel attacks, cache-based attacks, and other sophisticated types of attacks, this is mainly for educational purposes only, use a better library for production cryptographic operations.
- 
-Based on your `aes.hpp` file, here is a suggested README that provides an overview of the AES algorithm, instructions on how to use the functionalities in your code, and some AES history.
 
----
 
 # AES Algorithm Implementation
 
-This repository provides an implementation of the Advanced Encryption Standard (AES) algorithm, supporting key sizes of 128 and 256 bits. The AES algorithm is a widely used symmetric encryption standard adopted by the U.S. government and many organizations worldwide for securing sensitive data.
-
-## Table of Contents
-
-1. [About AES](#about-aes)
-2. [Features](#features)
-3. [Usage](#usage)
-   - [Generating a Secure Key](#generating-a-secure-key)
-   - [Encrypting Data](#encrypting-data)
-   - [Decrypting Data](#decrypting-data)
-4. [Code Example](#code-example)
-5. [References](#references)
-
----
-
-## About AES
-
-AES was established as a Federal Information Processing Standard (FIPS) in 2001 by the National Institute of Standards and Technology (NIST). It is based on the Rijndael block cipher developed by Vincent Rijmen and Joan Daemen.
-
-Key characteristics of AES:
-- **Block Size:** 128 bits
-- **Key Sizes:** 128, 192, or 256 bits (only 128 and 256 are implemented in this repository)
-- **Rounds:** 10 (128-bit keys), 14 (256-bit keys)
-
-AES is widely used in secure communications, file encryption, and other applications requiring strong encryption.
-
----
+This repository contains a C++ implementation of the Advanced Encryption Standard (AES) algorithm. The implementation supports key sizes of 128 and 256 bits (192-bit key size is omitted). It provides encryption and decryption functionalities as well as utilities for secure key generation using both Mersenne Twister and a Cryptographically Secure Pseudo-Random Number Generator (CSPRNG).
 
 ## Features
 
-- **Key Sizes Supported:** 128 bits and 256 bits
-- **Encryption and Decryption:** Implements both AES encryption and decryption.
-- **Utilities:**
-  - Generate secure random keys.
-  - Perform Galois Field arithmetic.
-  - Create S-Box and inverse S-Box.
-  - Rounds for SubBytes, ShiftRows, MixColumns, and AddRoundKey.
+- **AES Encryption and Decryption**:
+  - Supports AES-128, AES-192 and AES-256 modes.
+  - Implements all AES components including S-Box generation, key expansion, and Rijndael transformations.
+  
+- **Key Generation**:
+  - Generates secure random keys using a custom CSPRNG or Mersenne Twister PRNG.
+  
+- **Test Framework**:
+  - Includes a test suite to validate AES encryption and decryption for varying plaintext lengths and key sizes.
+
+---
+
+## File Structure
+
+- **`aes.hpp`**: The main implementation file containing the core AES classes and utility functions.
+- **Namespaces**:
+  - `AesCryptoModule`: Contains the AES implementation and utilities.
+  - `AESCrypto`: Includes the AES-specific encryption and decryption logic.
+  - `Test`: Provides testing functionality for the AES implementation.
+
+---
+
+## How It Works
+
+### AES Components
+
+- **Key Expansion**:
+  - Expands the input key into multiple round keys for AES operations.
+- **Rijndael Transformations**:
+  - Implements SubBytes, ShiftRows, MixColumns, and AddRoundKey operations.
+- **Padding**:
+  - Uses PKCS#7 padding for plaintext alignment with AES block sizes.
+
+### Key Generation
+
+- **Mersenne Twister PRNG**:
+  - Generates random keys for AES encryption.
+- **CSPRNG** (Linux/Unix):
+  - Provides higher entropy key generation by reading from `/dev/urandom`.
 
 ---
 
 ## Usage
 
-### Generating a Secure Key
+### Prerequisites
 
-The `AESUtils` class provides a method to generate secure random keys of the specified size.
+- A C++ compiler supporting C++17 or later.
+- Linux/Unix system recommended for the CSPRNG functionality.
 
-```cpp
-std::string key = AESUtils::genSecKeyBlock(AES128KS); // For 128-bit key
-```
+### Example Code
 
-### Encrypting Data
-
-To encrypt data, use the `AES_Encryption` class. Ensure the input is padded to match the block size (128 bits).
+Here is an example of how to use the AES implementation:
 
 ```cpp
 #include "aes.hpp"
-using namespace AESCrypto;
-
-AES_Encryption<AES128KS> encryptor;
-std::vector<byte> encryptedData = encryptor.call("plaintext", "securekey128");
-```
-
-### Decrypting Data
-
-To decrypt the encrypted data, use the `AES_Decryption` class.
-
-```cpp
-AES_Decryption<AES128KS> decryptor;
-std::vector<byte> decryptedData = decryptor.call(std::string(encryptedData.begin(), encryptedData.end(), "securekey128");
-```
-
----
-
-## Code Example
-
-Here's a complete example of encryption and decryption using a 128-bit key:
-
-```cpp
-#include "aes.hpp"
-#include <iostream>
 
 int main() {
-    using namespace AESCrypto;
+    std::string plaintext = "This is a secret message!";
+    std::string key = Test::CSPRNG::genSecKeyBlock(128); // Generate a 128-bit AES key.
 
-    std::string plaintext = "Hello, AES!";
-    std::string key = AESUtils::genSecKeyBlock(AES128KS);
+    // Encrypt the plaintext.
+    AESCrypto::AES_Encryption<AES128KS> aesEncryptor;
+    std::vector<byte> encryptedData = aesEncryptor.call(plaintext, key);
 
-    // Encrypt
-    AES_Encryption<AES128KS> encryptor;
-    std::vector<byte> encryptedData = encryptor.call(plaintext, key);
+    // Decrypt the ciphertext.
+    AESCrypto::AES_Decryption<AES128KS> aesDecryptor;
+    std::vector<byte> decryptedData = aesDecryptor.call(std::string(encryptedData.begin(), encryptedData.end()), key);
 
-    // Decrypt
-    AES_Decryption<AES128KS> decryptor;
-    std::vector<byte> decryptedData = decryptor.call(std::string(encryptedData.begin(), encryptedData.end()), key);
-
-    // Output
-    std::cout << "Original: " << plaintext << "\n";
-    std::cout << "Decrypted: " << std::string(decryptedData.begin(), decryptedData.end()) << "\n";
+    // Output results.
+    std::cout << "Plaintext: " << plaintext << std::endl;
+    std::cout << "Encrypted (Hex): ";
+    for (byte b : encryptedData) {
+        std::cout << std::hex << (int)b << " ";
+    }
+    std::cout << "\nDecrypted: " << std::string(decryptedData.begin(), decryptedData.end()) << std::endl;
 
     return 0;
 }
 ```
 
+### Test Suite
+
+To run the provided test cases:
+
+1. Compile and execute the `run()` function in the `Test` namespace.
+2. The test suite encrypts and decrypts the plaintext using AES-128, AES-192, and AES-256 keys, validating the correctness of the implementation.
+
 ---
 
-## References
+## Key Classes and Functions
 
-- [NIST AES Overview](https://csrc.nist.gov/projects/block-cipher-techniques)
-- [AES on Wikipedia](https://en.wikipedia.org/wiki/Advanced_Encryption_Standard)
+### `AESCrypto::AES_Encryption`
+Handles AES encryption for a specified key size (`AES128KS`, `AES192KS` or `AES256KS`).
+
+### `AESCrypto::AES_Decryption`
+Handles AES decryption for a specified key size.
+
+### `AESUtils`
+Utility class for AES-specific operations:
+- S-Box generation.
+- Rijndael MixColumns and InvMixColumns constants.
+- Secure key generation.
+
+### `Test::CSPRNG`
+A cryptographically secure pseudo-random number generator for key generation.
+
+---
+
+## Limitations
+
+1. **Security**:
+   - Does not protect against attacks such as side channel and cache based...
+   
+2. **CSPRNG on Windows**:
+   - Windows uses a fallback Mersenne Twister PRNG, which provides lower entropy.
+
+---
+
+## Contributions
+
+Contributions are welcome! If you encounter issues or have suggestions, feel free to open an issue or submit a pull request.
+
+---
+
+## License
+
+This project is licensed under the MIT License. See the `LICENSE` file for details.
 
 ---
