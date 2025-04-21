@@ -1,3 +1,4 @@
 # AES Algorithm
 
-need to create a documentation for this one...
+Does not implement prevention against side channel attacks, cache-based attacks, and other sophisticated types of attacks, this is mainly for educational purposes only, use a better library for production cryptographic operations.
+ 
