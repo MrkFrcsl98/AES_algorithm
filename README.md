@@ -1,11 +1,8 @@
-# AES Algorithm
-
-Does not implement prevention against side channel attacks, cache-based attacks, and other sophisticated types of attacks, this is mainly for educational purposes only, use a better library for production cryptographic operations.
-
-
 # AES Algorithm Implementation
 
 This repository contains a C++ implementation of the Advanced Encryption Standard (AES) algorithm. The implementation supports key sizes of 128 and 256 bits (192-bit key size is omitted). It provides encryption and decryption functionalities as well as utilities for secure key generation using both Mersenne Twister and a Cryptographically Secure Pseudo-Random Number Generator (CSPRNG).
+
+`This is intended for education purpose only, do not use this shit in production mode, first because it sucks in size and speed(is not optimized at all), second, does not protect against any attack vector.`
 
 ## Features
 
