@@ -144,45 +144,45 @@ public:
 
 protected:
   void _validateParameters(const std::string &input, const std::string &key) {
-    iSz = input.size();
-    kSz = key.size();
-    if (iSz == 0 || kSz == 0 || kSz > (AES256KS / 8)) [[unlikely]] {
+    this->iSz = input.size();
+    this->kSz = key.size();
+    if (this->iSz == 0 || this->iSz == 0 || this->iSz > (AES256KS / 8)) [[unlikely]] {
       throw std::invalid_argument("invalid input or key!");
     }
   }
 
   inline void _bindParameters(const std::string &input, const std::string &key) {
-    parameter.data.assign(input.begin(), input.end());
-    parameter.key.assign(key.begin(), key.end());
+    this->parameter.data.assign(input.begin(), input.end());
+    this->parameter.key.assign(key.begin(), key.end());
   }
 
   inline void _stateInitialization() {
-    state_matrix.resize(Nr + 1, std::vector<byte>(Nb));
-    round_keys.resize((Nr + 1) * Nb, std::vector<byte>(Nb));
+    this->state_matrix.resize(Nr + 1, std::vector<byte>(Nb));
+    this->round_keys.resize((Nr + 1) * Nb, std::vector<byte>(Nb));
   }
 
   inline void _eraseData() noexcept {
-    state_matrix.clear();
-    round_keys.clear();
+    this->state_matrix.clear();
+    this->round_keys.clear();
   }
 
   void _keySchedule() {
     for (byte i = 0; i < Nk; ++i) {
       for (byte j = 0; j < Nb; ++j) {
-        round_keys[i][j] = parameter.key[i * Nb + j];
+        this->round_keys[i][j] = this->parameter.key[i * Nb + j];
       }
     }
     for (uint16_t i = Nk; i < ((Nr + 1) * Nb); ++i) {
-      std::vector<byte> TRK = round_keys[i - 1];
+      std::vector<byte> kRound = this->round_keys[i - 1];
       if (i % Nk == 0) {
-        _keyRotate(TRK, 1);
-        std::transform(TRK.begin(), TRK.end(), TRK.begin(), [](byte b) { return AESUtils::SBox[b]; });
-        TRK[0] ^= AESUtils::RCon[i / Nk];
+        this->_keyRotate(kRound, 1);
+        std::transform(kRound.begin(), kRound.end(), kRound.begin(), [](byte b) { return AESUtils::SBox[b]; });
+        kRound[0] ^= AESUtils::RCon[i / Nk];
       } else if (Nk > 6 && (i % Nk == 4)) {
-        std::transform(TRK.begin(), TRK.end(), TRK.begin(), [](byte b) { return AESUtils::SBox[b]; });
+        std::transform(kRound.begin(), kRound.end(), kRound.begin(), [](byte b) { return AESUtils::SBox[b]; });
       }
-      for (byte j = 0; j < TRK.size(); ++j) {
-        round_keys[i][j] = round_keys[i - Nk][j] ^ TRK[j];
+      for (byte j = 0; j < kRound.size(); ++j) {
+        this->round_keys[i][j] = this->round_keys[i - Nk][j] ^ kRound[j];
       }
     }
   }
@@ -202,44 +202,44 @@ protected:
   inline void _addRoundKey(size_t round) noexcept {
     for (byte r = 0; r < Nb; ++r) {
       for (byte k = 0; k < Nb; ++k) {
-        state_matrix[k][r] ^= round_keys[round * Nb + r][k];
+        this->state_matrix[k][r] ^= this->round_keys[round * Nb + r][k];
       }
     }
   }
 
   inline void _subBytes() noexcept {
-    for (auto &row : state_matrix) {
+    for (auto &row : this->state_matrix) {
       std::transform(row.begin(), row.end(), row.begin(), [](byte b) { return AESUtils::SBox[b]; });
     }
   }
 
   inline void _invSubBytes() noexcept {
-    for (auto &row : state_matrix) {
+    for (auto &row : this->state_matrix) {
       std::transform(row.begin(), row.end(), row.begin(), [](byte b) { return AESUtils::InvSBox[b]; });
     }
   }
 
   inline void _shiftRows() noexcept {
     for (int i = 1; i < Nb; ++i) {
-      _keyRotate(state_matrix[i], i);
+      this->_keyRotate(this->state_matrix[i], i);
     }
   }
 
   inline void _invShiftRows() noexcept {
     for (int i = 1; i < Nb; ++i) {
-      _keyRotate(state_matrix[Nb - i], i);
+      this->_keyRotate(this->state_matrix[Nb - i], i);
     }
   }
 
   inline void _mixColumns() noexcept {
     for (int i = 0; i < Nb; ++i) {
       std::array<byte, 4> temp;
-      temp[0] = __gfmultip2(state_matrix[0][i]) ^ __gfmultip3(state_matrix[1][i]) ^ state_matrix[2][i] ^ state_matrix[3][i];
-      temp[1] = state_matrix[0][i] ^ __gfmultip2(state_matrix[1][i]) ^ __gfmultip3(state_matrix[2][i]) ^ state_matrix[3][i];
-      temp[2] = state_matrix[0][i] ^ state_matrix[1][i] ^ __gfmultip2(state_matrix[2][i]) ^ __gfmultip3(state_matrix[3][i]);
-      temp[3] = __gfmultip3(state_matrix[0][i]) ^ state_matrix[1][i] ^ state_matrix[2][i] ^ __gfmultip2(state_matrix[3][i]);
+      temp[0] = __gfmultip2(this->state_matrix[0][i]) ^ __gfmultip3(this->state_matrix[1][i]) ^ this->state_matrix[2][i] ^ this->state_matrix[3][i];
+      temp[1] = this->state_matrix[0][i] ^ __gfmultip2(this->state_matrix[1][i]) ^ __gfmultip3(this->state_matrix[2][i]) ^ this->state_matrix[3][i];
+      temp[2] = this->state_matrix[0][i] ^ this->state_matrix[1][i] ^ __gfmultip2(this->state_matrix[2][i]) ^ __gfmultip3(this->state_matrix[3][i]);
+      temp[3] = __gfmultip3(this->state_matrix[0][i]) ^ this->state_matrix[1][i] ^ this->state_matrix[2][i] ^ __gfmultip2(this->state_matrix[3][i]);
       for (int j = 0; j < 4; ++j) {
-        state_matrix[j][i] = temp[j];
+        this->state_matrix[j][i] = temp[j];
       }
     }
   }
@@ -247,12 +247,12 @@ protected:
   inline void _invMixColumns() noexcept {
     for (int i = 0; i < Nb; ++i) {
       std::array<byte, 4> temp;
-      temp[0] = __gfmultip14(state_matrix[0][i]) ^ __gfmultip11(state_matrix[1][i]) ^ __gfmultip13(state_matrix[2][i]) ^ __gfmultip9(state_matrix[3][i]);
-      temp[1] = __gfmultip9(state_matrix[0][i]) ^ __gfmultip14(state_matrix[1][i]) ^ __gfmultip11(state_matrix[2][i]) ^ __gfmultip13(state_matrix[3][i]);
-      temp[2] = __gfmultip13(state_matrix[0][i]) ^ __gfmultip9(state_matrix[1][i]) ^ __gfmultip14(state_matrix[2][i]) ^ __gfmultip11(state_matrix[3][i]);
-      temp[3] = __gfmultip11(state_matrix[0][i]) ^ __gfmultip13(state_matrix[1][i]) ^ __gfmultip9(state_matrix[2][i]) ^ __gfmultip14(state_matrix[3][i]);
+      temp[0] = __gfmultip14(this->state_matrix[0][i]) ^ __gfmultip11(this->state_matrix[1][i]) ^ __gfmultip13(this->state_matrix[2][i]) ^ __gfmultip9(this->state_matrix[3][i]);
+      temp[1] = __gfmultip9(this->state_matrix[0][i]) ^ __gfmultip14(this->state_matrix[1][i]) ^ __gfmultip11(this->state_matrix[2][i]) ^ __gfmultip13(this->state_matrix[3][i]);
+      temp[2] = __gfmultip13(this->state_matrix[0][i]) ^ __gfmultip9(this->state_matrix[1][i]) ^ __gfmultip14(this->state_matrix[2][i]) ^ __gfmultip11(this->state_matrix[3][i]);
+      temp[3] = __gfmultip11(this->state_matrix[0][i]) ^ __gfmultip13(this->state_matrix[1][i]) ^ __gfmultip9(this->state_matrix[2][i]) ^ __gfmultip14(this->state_matrix[3][i]);
       for (int j = 0; j < 4; ++j) {
-        state_matrix[j][i] = temp[j];
+        this->state_matrix[j][i] = temp[j];
       }
     }
   }
@@ -277,7 +277,7 @@ protected:
   inline void _initStateMatrix(const std::string &bytes) noexcept {
     for (byte r = 0; r < Nb; ++r) {
       for (byte c = 0; c < Nb; ++c) {
-        state_matrix[r][c] = bytes[r + Nb * c];
+        this->state_matrix[r][c] = bytes[r + Nb * c];
       }
     }
   }
@@ -285,7 +285,7 @@ protected:
   inline void _setOutput(std::vector<byte> &out) noexcept {
     for (int i = 0; i < 4; ++i) {
       for (int j = 0; j < Nb; ++j) {
-        out[i + 4 * j] = state_matrix[i][j];
+        out[i + 4 * j] = this->state_matrix[i][j];
       }
     }
   }
