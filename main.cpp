@@ -4,9 +4,9 @@
 
 int main() {
   try {
-    std::string plaintext = "this is a secret message!";
-    std::string keyAES128 = "ThisIsASecretKey";
-    std::string keyAES256 = "ThisIsASecretKeyThisIsASecretKey";
+    std::string plaintext = "this is a secret message sh!";
+    std::string keyAES128 = AESUtils::genSecKeyBlock(128); // not the best security out there...
+    std::string keyAES256 = AESUtils::genSecKeyBlock(256); // same shit... but im simulating a key generator, you would use a CSPRNG for this purpose
 
     // Print plaintext data
     std::cout << "Plaintext(Hex):        ";
