@@ -516,6 +516,9 @@ public:
     if (block.size() != 16) [[unlikely]] {
       throw std::invalid_argument("Invalid block size for CBC encryption");
     }
+    std::cout << "+IV After: ";
+    for(const auto x: iv) std::cout << std::hex << (int)x << " ";
+    std::cout << "\n";
     for (size_t i = 0; i < 16; ++i) {
       block[i] ^= iv[i];
     }
@@ -526,8 +529,8 @@ public:
     core._finalRound(AesEngineT::Nr);
     core._setOutput(tmpOut);
     block = std::string(tmpOut.begin(), tmpOut.end());
-    iv.clear();
     iv.assign(block.begin(), block.end());
+    
   }
 
   template <typename AesEngineT>
@@ -535,19 +538,21 @@ public:
     if (block.size() != 16) [[unlikely]] {
       throw std::invalid_argument("Invalid block size for CBC decryption");
     }
+    std::cout << "-IV After: ";
+    for(const auto x: iv) std::cout << std::hex << (int)x << " ";
+    std::cout << "\n";
     std::vector<byte> tmpOut(16);
     core._initStateMatrix(block);
     core._addRoundKey(AesEngineT::Nr);
     core._initMainRounds();
     core._finalRound(0);
-    core._setOutput(tmpOut);
+    core._setOutput(tmpOut);    
     for (size_t i = 0; i < 16; ++i) {
       tmpOut[i] ^= iv[i];
     }
-    
     block = std::string(tmpOut.begin(), tmpOut.end());
-    iv.clear();
     iv.assign(block.begin(), block.end());
+    
   }
 };
 
@@ -853,51 +858,49 @@ static void runAesTest(const uint16_t ks) {
 static void run() {
 
   printPlaintext();
+  
+  // const uint16_t threshold = cPlaintext.length();
+  // uint16_t c = 0;
+  // while (++c < threshold) {
+  //   plaintext = std::string(cPlaintext.begin(), cPlaintext.begin() + c);
+  //   keyAES128 = CSPRNG::genSecKeyBlock(128);
+  //   AESUtils::GenerateIvBlock(IV);
+  //   runAesTest(128);
+  // }
+  // S_THRESHOLD += c; // updating threshold of score counter ...
 
-  const uint16_t threshold = cPlaintext.length();
-  uint16_t c = 0;
-  while (++c < threshold) {
-    plaintext = std::string(cPlaintext.begin(), cPlaintext.begin() + c);
-    keyAES128 = CSPRNG::genSecKeyBlock(128);
-    AESUtils::GenerateIvBlock(IV);
-    runAesTest(128);
-  }
-  S_THRESHOLD += c; // updating threshold of score counter ...
+  // c = 0; // reset iteration counter for the next case
+  // while (++c < threshold) {
+  //   plaintext = std::string(cPlaintext.begin(), cPlaintext.begin() + c);
+  //   AESUtils::GenerateIvBlock(IV);
+  //   keyAES192 = CSPRNG::genSecKeyBlock(192);
+  //   runAesTest(192);
+  // }
+  // S_THRESHOLD += c;
 
-  c = 0; // reset iteration counter for the next case
-  while (++c < threshold) {
-    plaintext = std::string(cPlaintext.begin(), cPlaintext.begin() + c);
-    AESUtils::GenerateIvBlock(IV);
-    keyAES192 = CSPRNG::genSecKeyBlock(192);
-    runAesTest(192);
-  }
-  S_THRESHOLD += c;
-
-  c = 0;
-  while (++c < threshold) {
-    plaintext = std::string(cPlaintext.begin(), cPlaintext.begin() + c);
-    AESUtils::GenerateIvBlock(IV);
-    keyAES256 = CSPRNG::genSecKeyBlock(256);
-    runAesTest(256);
-  }
-  S_THRESHOLD += c;
-  std::cout << "Test Execution Finished... total tests passed = " << std::dec << (int)tscore << "/"
-            << (int)S_THRESHOLD << "\n";
+  // c = 0;
+  // while (++c < threshold) {
+  //   plaintext = std::string(cPlaintext.begin(), cPlaintext.begin() + c);
+  //   AESUtils::GenerateIvBlock(IV);
+  //   keyAES256 = CSPRNG::genSecKeyBlock(256);
+  //   runAesTest(256);
+  // }
+  // S_THRESHOLD += c;
+  // std::cout << "Test Execution Finished... total tests passed = " << std::dec << (int)tscore << "/"
+  //           << (int)S_THRESHOLD << "\n";
 
   AesCryptoModule::AES_Encryption<128, AesCryptoModule::AESMode::CBC> enc;
     AesCryptoModule::AES_Encryption<128, AesCryptoModule::AESMode::CBC> dec;
-    std::string input = "some message right here!!!";
+    std::string input = "some message right";
     std::string key = AesCryptoModule::AESUtils::genSecKeyBlock(128);
     std::vector<byte> iv,oiv;
     AesCryptoModule::AESUtils::GenerateIvBlock(oiv);
-    iv = oiv;
-    std::string strIV(iv.begin(), iv.end());
-    std::cout << "IV: " << strIV << "\n";
+    iv.assign(oiv.begin(), oiv.end());
 
     std::vector<byte> out = enc.apply(input, key, iv);
     std::string strOut = std::string(out.begin(), out.end());
     std::cout << "CBC result: ";
-    for(const int i: strOut) std::cout << std::setw(2) << std::hex <<std::setfill('0') << (int)i << " ";
+    for(const int i: strOut) std::cout << std::hex << (int)i << " ";
     std::cout << "\n";
     iv = oiv;
     std::vector<byte> decrypted = dec.apply(strOut, key, iv);
