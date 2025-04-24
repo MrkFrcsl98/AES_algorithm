@@ -526,7 +526,8 @@ public:
     core._finalRound(AesEngineT::Nr);
     core._setOutput(tmpOut);
     block = std::string(tmpOut.begin(), tmpOut.end());
-     iv = tmpOut;
+    iv.clear();
+    iv.assign(block.begin(), block.end());
   }
 
   template <typename AesEngineT>
@@ -543,9 +544,10 @@ public:
     for (size_t i = 0; i < 16; ++i) {
       tmpOut[i] ^= iv[i];
     }
-    iv = tmpOut ;
-    block = std::string(tmpOut.begin(), tmpOut.end());
     
+    block = std::string(tmpOut.begin(), tmpOut.end());
+    iv.clear();
+    iv.assign(block.begin(), block.end());
   }
 };
 
@@ -889,7 +891,8 @@ static void run() {
     std::vector<byte> iv,oiv;
     AesCryptoModule::AESUtils::GenerateIvBlock(oiv);
     iv = oiv;
-
+    std::string strIV(iv.begin(), iv.end());
+    std::cout << "IV: " << strIV << "\n";
 
     std::vector<byte> out = enc.apply(input, key, iv);
     std::string strOut = std::string(out.begin(), out.end());
