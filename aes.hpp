@@ -220,7 +220,7 @@ using StateMatrixT = RoundKeysT;
 
 template <uint16_t BlockSz>
 class AesEngine<BlockSz, typename std::enable_if<IsValidBlockSize<BlockSz>::value>::type> {
-protected:
+public:
   static constexpr byte Nk = BlockSz / 32;
   static constexpr byte Nr =
       BlockSz == AES128KS ? AES128_ROUNDS : (BlockSz == AES192KS ? AES192_ROUNDS : AES256_ROUNDS);
@@ -237,7 +237,7 @@ public:
 
   virtual ~AesEngine() noexcept { _eraseData(); }
 
-protected:
+  // protected:
   __attribute__((cold)) void _validateParameters(const std::string &input, const std::string &key) {
     this->iSz = input.size();
     this->kSz = key.size();
@@ -386,15 +386,11 @@ protected:
     return __gfmultip2(__gfmultip2(__gfmultip2(x))) ^ __gfmultip2(__gfmultip2(x)) ^ __gfmultip2(x);
   }
 
-  virtual void _execMainRounds() {};
-  __attribute__((cold)) virtual void _execFinalRounds() {};
+  virtual void _execRound(const uint8_t r) {};
+  __attribute__((cold)) virtual void _finalRound(const uint8_t r) {};
   __attribute__((cold)) virtual void _generateAesConstants() noexcept {};
-  virtual void _applyModeOfOperation() {};
-  inline void _initMainRounds() {
-    for (uint8_t r = 1; r < Nr; ++r) {
-      _execMainRounds();
-    }
-  }
+  virtual void _modeTransformation() {};
+  virtual inline void _initMainRounds() {}
 
   __attribute__((hot, nothrow)) inline void _initStateMatrix(const std::string &bytes) noexcept {
     for (byte r = 0; r < Nb; ++r) {
@@ -458,15 +454,43 @@ public:
     return block.size() == 16;
   };
 
-  __attribute__((hot, always_inline)) inline static void Encryption(std::string &block) {
-    if (!isValidBlock(block)) [[unlikely]]
-      throw std::invalid_argument("Invalid block size for ECB encryption");
+  __attribute__((hot, always_inline, nothrow)) inline static void
+  BlockDigest(std::vector<byte> &tmp, std::vector<byte> &out, std::string &block) noexcept {
+    tmp.assign(block.begin(), block.end());
+    out.insert(out.end(), tmp.begin(), tmp.end());
   };
 
-  __attribute__((hot, always_inline)) inline static void Decryption(std::string &block) {
-    if (!isValidBlock(block)) [[unlikely]]
-      throw std::invalid_argument("Invalid block size for ECB decryption");
+  __attribute__((hot, always_inline, nothrow)) inline static void CreateBlock(const std::vector<uint16_t>& rblock, std::string& out, const uint16_t offset) {
+    out = std::string(rblock.begin() + offset, rblock.begin() + offset + 16);
   };
+
+  template <typename AesEngineT>
+  __attribute__((hot, always_inline)) inline static void Encryption(AesEngineT &core, std::string &block) {
+    if (!isValidBlock(block)) [[unlikely]] {
+      throw std::invalid_argument("Invalid block size for ECB encryption");
+    }
+    std::vector<byte> tmpOut(16);
+    core._initStateMatrix(block);
+    core._addRoundKey(0);
+    core._initMainRounds();
+    core._finalRound(AesEngineT::Nr);
+    core._setOutput(tmpOut);
+    block = std::string(tmpOut.begin(), tmpOut.end());
+  }
+
+  template <typename AesEngineT>
+  __attribute__((hot, always_inline)) inline static void Decryption(AesEngineT &core, std::string &block) {
+    if (!isValidBlock(block)) [[unlikely]] {
+      throw std::invalid_argument("Invalid block size for ECB decryption");
+    }
+    std::vector<byte> tmpOut(16);
+    core._initStateMatrix(block);
+    core._addRoundKey(AesEngineT::Nr);
+    core._initMainRounds();
+    core._finalRound(0);
+    core._setOutput(tmpOut);
+    block = std::string(tmpOut.begin(), tmpOut.end());
+  }
 };
 
 template <uint16_t BlockSz, AESMode Mode>
@@ -478,30 +502,26 @@ public:
   AES_Encryption(AES_Encryption &&) noexcept = delete;
 
   __attribute__((cold)) const std::vector<byte> apply(const std::string &input, const std::string &key) {
+    std::vector<byte> result;
     this->_generateAesConstants();
     this->_validateParameters(input, key);
     this->_bindParameters(this->_addPadding(input), key);
     this->_stateInitialization();
     this->_keySchedule();
-    std::vector<byte> result;
-    this->_applyModeOfOperation(result);
+    this->_modeTransformation(result);
     return result;
   };
 
   ~AES_Encryption() noexcept override = default;
 
-private:
-  void _applyModeOfOperation(std::vector<byte> &out) {
-    std::vector<byte> tmpOut(16);
+  void _modeTransformation(std::vector<byte> &out) {
+    std::vector<byte> tmp(16);
+    std::string block;
+    block.reserve(16);
     for (uint8_t i = 0; i < this->parameter.data.size(); i += 16) {
-      std::string dblock(this->parameter.data.begin() + i, this->parameter.data.begin() + i + 16);
-      ECB_Mode::Encryption(dblock);
-      this->_initStateMatrix(dblock);
-      this->_addRoundKey(0);
-      this->_initMainRounds();
-      this->_execFinalRounds();
-      this->_setOutput(tmpOut);
-      out.insert(out.end(), tmpOut.begin(), tmpOut.end());
+      ECB_Mode::CreateBlock(this->parameter.data, block, i);
+      ECB_Mode::Encryption(*this, block);
+      ECB_Mode::BlockDigest(tmp, out, block);
     }
   };
 
@@ -511,17 +531,23 @@ private:
     AESUtils::createMixCols(AESUtils::MixCols);
   }
 
-  void _execMainRounds() override {
+  void _execRound(const uint8_t r) override {
     this->_subBytes();
     this->_shiftRows();
     this->_mixColumns();
-    this->_addRoundKey(0);
+    this->_addRoundKey(r);
   }
 
-  void _execFinalRounds() override {
+  void _finalRound(const uint8_t r) override {
     this->_subBytes();
     this->_shiftRows();
-    this->_addRoundKey(0);
+    this->_addRoundKey(r);
+  }
+
+  inline void _initMainRounds() override {
+    for (uint8_t r = 1; r < AesEngine<BlockSz>::Nr; ++r) {
+      this->_execRound(r);
+    }
   }
 };
 template <uint16_t BlockSz, AESMode Mode>
@@ -533,49 +559,55 @@ public:
   AES_Decryption(AES_Decryption &&) noexcept = delete;
 
   __attribute__((cold)) const std::vector<byte> apply(const std::string &input, const std::string &key) {
+    std::vector<byte> result;
     this->_generateAesConstants();
     this->_validateParameters(input, key);
     this->_bindParameters(input, key);
     this->_stateInitialization();
     this->_keySchedule();
-    std::vector<byte> result;
-    this->_applyModeOfOperation(result);
+    this->_modeTransformation(result);
     this->_pkcs7Dettach(result);
     return result;
   }
   ~AES_Decryption() noexcept override = default;
 
-private:
-  void _applyModeOfOperation(std::vector<byte> &out) {
+  void _modeTransformation(std::vector<byte> &out) {
+    std::vector<byte> tmp(16);
+    std::string block;
+    block.reserve(16);
     for (uint8_t i = 0; i < this->parameter.data.size(); i += 16) {
-      std::string dblock(this->parameter.data.begin() + i, this->parameter.data.begin() + i + 16);
-      ECB_Mode::Decryption(dblock);
-      this->_initStateMatrix(dblock);
-      this->_addRoundKey(0);
-      this->_initMainRounds();
-      this->_execFinalRounds();
-      std::vector<byte> tmp(16);
-      this->_setOutput(tmp);
-      out.insert(out.end(), tmp.begin(), tmp.end());
+      ECB_Mode::CreateBlock(this->parameter.data, block, i);
+      ECB_Mode::Decryption(*this, block);
+      ECB_Mode::BlockDigest(tmp, out, block);
     }
-  }
+  };
+
   void _generateAesConstants() noexcept override {
     AESUtils::createInvSBox(AESUtils::SBox, AESUtils::InvSBox);
     AESUtils::createRCon(AESUtils::RCon);
     AESUtils::createInvMixCols(AESUtils::InvMixCols);
   }
 
-  void _execMainRounds() override {
+  void _execRound(const uint8_t r) override {
     this->_invShiftRows();
     this->_invSubBytes();
-    this->_addRoundKey(0);
+    this->_addRoundKey(r);
     this->_invMixColumns();
   }
 
-  void _execFinalRounds() override {
+  void _finalRound(const uint8_t r) override {
     this->_invShiftRows();
     this->_invSubBytes();
-    this->_addRoundKey(0);
+    this->_addRoundKey(r);
+  }
+
+  inline void _initMainRounds() override {
+    for (uint8_t round = AesEngine<BlockSz>::Nr - 1; round > 0; --round) {
+      this->_invShiftRows();
+      this->_invSubBytes();
+      this->_addRoundKey(round);
+      this->_invMixColumns();
+    }
   }
 };
 
@@ -687,14 +719,14 @@ static const std::string cPlaintext("this is a secret message to deliver!");
 static std::string plaintext(cPlaintext.begin(), cPlaintext.begin() + 1);
 static std::string keyAES128(CSPRNG::genSecKeyBlock(128)); // not the best security out there...
 static std::string keyAES192(CSPRNG::genSecKeyBlock(
-    192)); // to be honest i had some issues with making the 192 variant work for some reason...
+    192)); // to be honest i had some issues with making the 192 variant work for some reason, but now it works alright...
 static std::string keyAES256(CSPRNG::genSecKeyBlock(
     256)); // same shit... but im simulating a key generator, you would use a CSPRNG for this purpose
 
 static size_t tscore = 3; // for 3 test cases(128, 192, 256) starting from index 0
 static size_t S_THRESHOLD = 0;
 
-static constexpr size_t exec_delay = 100; // set the delay between each execution(ms)
+static constexpr size_t exec_delay = 20; // set the delay between each execution(ms)
 
 // defining the AES instances that will be used later
 AES_Encryption<AES128KS, AESMode::ECB> aes128Encryptor;
