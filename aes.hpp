@@ -185,6 +185,14 @@ public:
     return seckey;
   };
 
+  static void GenerateIvBlock(std::vector<byte> &iv) {
+    iv.resize(16); // Block size for AES is 16 bytes
+    PRNG generator;
+    for (auto &b : iv) {
+      b = generator.MersenneTwister(0, 255);
+    }
+  }
+
   static std::array<byte, 256> SBox;
   static std::array<byte, 256> InvSBox;
   static std::array<byte, 256> RCon;
@@ -438,6 +446,17 @@ public:
     this->iSz = paddedInput.size();
     return paddedInput;
   }
+
+  __attribute__((hot, always_inline, nothrow)) inline void
+  _blockDigest(std::vector<byte> &tmp, std::vector<byte> &out, std::string &block) noexcept {
+    tmp.assign(block.begin(), block.end());
+    out.insert(out.end(), tmp.begin(), tmp.end());
+  };
+
+  __attribute__((hot, always_inline, nothrow)) inline void _createBlock(std::string &out,
+                                                                        const uint16_t offset) {
+    out = std::string(this->parameter.data.begin() + offset, this->parameter.data.begin() + offset + 16);
+  };
 };
 
 class ECB_Mode {
@@ -452,16 +471,6 @@ public:
   __attribute__((hot, always_inline, nothrow)) inline static const bool
   isValidBlock(std::string &block) noexcept {
     return block.size() == 16;
-  };
-
-  __attribute__((hot, always_inline, nothrow)) inline static void
-  BlockDigest(std::vector<byte> &tmp, std::vector<byte> &out, std::string &block) noexcept {
-    tmp.assign(block.begin(), block.end());
-    out.insert(out.end(), tmp.begin(), tmp.end());
-  };
-
-  __attribute__((hot, always_inline, nothrow)) inline static void CreateBlock(const std::vector<uint16_t>& rblock, std::string& out, const uint16_t offset) {
-    out = std::string(rblock.begin() + offset, rblock.begin() + offset + 16);
   };
 
   template <typename AesEngineT>
@@ -493,6 +502,50 @@ public:
   }
 };
 
+class CBC_Mode {
+public:
+  CBC_Mode() noexcept {};
+  CBC_Mode(const CBC_Mode &) noexcept = delete;
+  CBC_Mode(CBC_Mode &&) noexcept = delete;
+  CBC_Mode &operator=(const CBC_Mode &) noexcept = delete;
+  CBC_Mode &operator=(CBC_Mode &&) noexcept = delete;
+  ~CBC_Mode() noexcept {};
+
+  template <typename AesEngineT>
+  static void Encryption(AesEngineT &core, std::string &block, std::vector<byte> &iv) {
+    if (block.size() != 16) [[unlikely]] {
+      throw std::invalid_argument("Invalid block size for CBC encryption");
+    }
+    for (size_t i = 0; i < 16; ++i) {
+      block[i] ^= iv[i];
+    }
+    std::vector<byte> tmpOut(16);
+    core._initStateMatrix(block);
+    core._addRoundKey(0);
+    core._initMainRounds();
+    core._finalRound(AesEngineT::Nr);
+    core._setOutput(tmpOut);
+    block = std::string(tmpOut.begin(), tmpOut.end());
+  }
+
+  template <typename AesEngineT>
+  static void Decryption(AesEngineT &core, std::string &block, std::vector<byte> &iv) {
+    if (block.size() != 16) [[unlikely]] {
+      throw std::invalid_argument("Invalid block size for CBC decryption");
+    }
+    std::vector<byte> tmpOut(16);
+    core._initStateMatrix(block);
+    core._addRoundKey(AesEngineT::Nr);
+    core._initMainRounds();
+    core._finalRound(0);
+    core._setOutput(tmpOut);
+    for (size_t i = 0; i < 16; ++i) {
+      tmpOut[i] ^= iv[i];
+    }
+    block = std::string(tmpOut.begin(), tmpOut.end());
+  }
+};
+
 template <uint16_t BlockSz, AESMode Mode>
 class AES_Encryption<BlockSz, Mode, typename std::enable_if<IsValidBlockSize<BlockSz>::value>::type>
     : public AesEngine<BlockSz> {
@@ -501,27 +554,35 @@ public:
   AES_Encryption(const AES_Encryption &) noexcept = delete;
   AES_Encryption(AES_Encryption &&) noexcept = delete;
 
-  __attribute__((cold)) const std::vector<byte> apply(const std::string &input, const std::string &key) {
+  __attribute__((cold)) const std::vector<byte> apply(const std::string &input, const std::string &key,
+                                                      std::vector<byte> &iv = {}) {
     std::vector<byte> result;
     this->_generateAesConstants();
     this->_validateParameters(input, key);
     this->_bindParameters(this->_addPadding(input), key);
     this->_stateInitialization();
     this->_keySchedule();
-    this->_modeTransformation(result);
+    this->_modeTransformation(result, iv);
     return result;
   };
 
   ~AES_Encryption() noexcept override = default;
 
-  void _modeTransformation(std::vector<byte> &out) {
+  void _modeTransformation(std::vector<byte> &out, std::vector<byte> &iv) {
     std::vector<byte> tmp(16);
     std::string block;
     block.reserve(16);
     for (uint8_t i = 0; i < this->parameter.data.size(); i += 16) {
-      ECB_Mode::CreateBlock(this->parameter.data, block, i);
-      ECB_Mode::Encryption(*this, block);
-      ECB_Mode::BlockDigest(tmp, out, block);
+      this->_createBlock(block, i);
+      switch (Mode) {
+      case AESMode::CBC:
+        CBC_Mode::Encryption(*this, block, iv);
+        break;
+      default:
+        ECB_Mode::Encryption(*this, block);
+        break;
+      }
+      this->_blockDigest(tmp, out, block);
     }
   };
 
@@ -558,27 +619,35 @@ public:
   AES_Decryption(const AES_Decryption &) noexcept = delete;
   AES_Decryption(AES_Decryption &&) noexcept = delete;
 
-  __attribute__((cold)) const std::vector<byte> apply(const std::string &input, const std::string &key) {
+  __attribute__((cold)) const std::vector<byte> apply(const std::string &input, const std::string &key,
+                                                      std::vector<byte> &iv = {}) {
     std::vector<byte> result;
     this->_generateAesConstants();
     this->_validateParameters(input, key);
     this->_bindParameters(input, key);
     this->_stateInitialization();
     this->_keySchedule();
-    this->_modeTransformation(result);
+    this->_modeTransformation(result, iv);
     this->_pkcs7Dettach(result);
     return result;
   }
   ~AES_Decryption() noexcept override = default;
 
-  void _modeTransformation(std::vector<byte> &out) {
+  void _modeTransformation(std::vector<byte> &out, std::vector<byte> &iv) {
     std::vector<byte> tmp(16);
     std::string block;
     block.reserve(16);
     for (uint8_t i = 0; i < this->parameter.data.size(); i += 16) {
-      ECB_Mode::CreateBlock(this->parameter.data, block, i);
-      ECB_Mode::Decryption(*this, block);
-      ECB_Mode::BlockDigest(tmp, out, block);
+      this->_createBlock(block, i);
+      switch (Mode) {
+      case AESMode::CBC:
+        CBC_Mode::Decryption(*this, block, iv);
+        break;
+      default:
+        ECB_Mode::Decryption(*this, block);
+        break;
+      }
+      this->_blockDigest(tmp, out, block);
     }
   };
 
@@ -717,11 +786,10 @@ public:
 
 static const std::string cPlaintext("this is a secret message to deliver!");
 static std::string plaintext(cPlaintext.begin(), cPlaintext.begin() + 1);
-static std::string keyAES128(CSPRNG::genSecKeyBlock(128)); // not the best security out there...
-static std::string keyAES192(CSPRNG::genSecKeyBlock(
-    192)); // to be honest i had some issues with making the 192 variant work for some reason, but now it works alright...
-static std::string keyAES256(CSPRNG::genSecKeyBlock(
-    256)); // same shit... but im simulating a key generator, you would use a CSPRNG for this purpose
+static std::string keyAES128(CSPRNG::genSecKeyBlock(128));  
+static std::string keyAES192(CSPRNG::genSecKeyBlock(192)); 
+static std::string keyAES256(CSPRNG::genSecKeyBlock(256));
+static std::vector<byte> IV(16);
 
 static size_t tscore = 3; // for 3 test cases(128, 192, 256) starting from index 0
 static size_t S_THRESHOLD = 0;
@@ -757,40 +825,36 @@ static void printResult(const std::string_view l, const std::vector<byte> &data)
 static void runAesTest(const uint16_t ks) {
   std::vector<byte> encryptedData, decryptedData;
   if (ks == AES128KS) {
-    encryptedData = aes128Encryptor.apply(plaintext, keyAES128);
-    decryptedData = aes128Decryptor.apply(std::string(encryptedData.begin(), encryptedData.end()), keyAES128);
+    encryptedData = aes128Encryptor.apply(plaintext, keyAES128, IV);
+    decryptedData = aes128Decryptor.apply(std::string(encryptedData.begin(), encryptedData.end()), keyAES128, IV);
     printResult("AES128 Encrypted(Hex): ", encryptedData);
     printResult("AES128 Decrypted(Hex): ", decryptedData);
     tscore += std::string(decryptedData.begin(), decryptedData.end()) == plaintext ? 1 : 0;
   } else if (ks == AES192KS) {
-    encryptedData = aes192Encryptor.apply(plaintext, keyAES192);
-    decryptedData = aes192Decryptor.apply(std::string(encryptedData.begin(), encryptedData.end()), keyAES192);
+    encryptedData = aes192Encryptor.apply(plaintext, keyAES192, IV);
+    decryptedData = aes192Decryptor.apply(std::string(encryptedData.begin(), encryptedData.end()), keyAES192, IV);
     printResult("AES192 Encrypted(Hex): ", encryptedData);
     printResult("AES192 Decrypted(Hex): ", decryptedData);
     tscore += std::string(decryptedData.begin(), decryptedData.end()) == plaintext ? 1 : 0;
   } else {
-    encryptedData = aes256Encryptor.apply(plaintext, keyAES256);
-    decryptedData = aes256Decryptor.apply(std::string(encryptedData.begin(), encryptedData.end()), keyAES256);
+    encryptedData = aes256Encryptor.apply(plaintext, keyAES256, IV);
+    decryptedData = aes256Decryptor.apply(std::string(encryptedData.begin(), encryptedData.end()), keyAES256, IV);
     printResult("AES256 Encrypted(Hex): ", encryptedData);
     printResult("AES256 Decrypted(Hex): ", decryptedData);
     tscore += std::string(decryptedData.begin(), decryptedData.end()) == plaintext ? 1 : 0;
   }
 };
 
-void run() {
+static void run() {
 
   printPlaintext();
-  // test case for all aes Key sizes, run a loop of size plaintext.length() for each key size,
-  // starting from index 1 up to pt.size, to test how the implementation behaves on different
-  // data lengths, each iteration will generate a new key using my custom created CSPRNG
-  // class(not the best thing you will see btw... but it works so far), and through
-  // each iteration the plaintext(data) will be the previous one plus 1 more byte from
-  // the original data.
+
   const uint16_t threshold = cPlaintext.length();
   uint16_t c = 0;
   while (++c < threshold) {
     plaintext = std::string(cPlaintext.begin(), cPlaintext.begin() + c);
     keyAES128 = CSPRNG::genSecKeyBlock(128);
+    AESUtils::GenerateIvBlock(IV);
     runAesTest(128);
   }
   S_THRESHOLD += c; // updating threshold of score counter ...
@@ -798,6 +862,7 @@ void run() {
   c = 0; // reset iteration counter for the next case
   while (++c < threshold) {
     plaintext = std::string(cPlaintext.begin(), cPlaintext.begin() + c);
+    AESUtils::GenerateIvBlock(IV);
     keyAES192 = CSPRNG::genSecKeyBlock(192);
     runAesTest(192);
   }
@@ -806,6 +871,7 @@ void run() {
   c = 0;
   while (++c < threshold) {
     plaintext = std::string(cPlaintext.begin(), cPlaintext.begin() + c);
+    AESUtils::GenerateIvBlock(IV);
     keyAES256 = CSPRNG::genSecKeyBlock(256);
     runAesTest(256);
   }
