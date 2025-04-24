@@ -529,7 +529,7 @@ public:
     core._finalRound(AesEngineT::Nr);
     core._setOutput(tmpOut);
     block = std::string(tmpOut.begin(), tmpOut.end());
-    iv.assign(block.begin(), block.end());
+    iv.assign(tmpOut.begin(), tmpOut.end());
     
   }
 
@@ -538,6 +538,7 @@ public:
     if (block.size() != 16) [[unlikely]] {
       throw std::invalid_argument("Invalid block size for CBC decryption");
     }
+    std::vector<byte> tmp(block.begin(), block.end());
     std::cout << "-IV After: ";
     for(const auto x: iv) std::cout << std::hex << (int)x << " ";
     std::cout << "\n";
@@ -547,11 +548,12 @@ public:
     core._initMainRounds();
     core._finalRound(0);
     core._setOutput(tmpOut);    
+    
     for (size_t i = 0; i < 16; ++i) {
       tmpOut[i] ^= iv[i];
     }
     block = std::string(tmpOut.begin(), tmpOut.end());
-    iv.assign(block.begin(), block.end());
+    iv.assign(tmp.begin(), tmp.end());
     
   }
 };
@@ -900,7 +902,7 @@ static void run() {
     std::vector<byte> out = enc.apply(input, key, iv);
     std::string strOut = std::string(out.begin(), out.end());
     std::cout << "CBC result: ";
-    for(const int i: strOut) std::cout << std::hex << (int)i << " ";
+    for(const int i: strOut) std::cout << std::hex << std::setw(2) << std::setfill('0') << (int)i << " ";
     std::cout << "\n";
     iv = oiv;
     std::vector<byte> decrypted = dec.apply(strOut, key, iv);
