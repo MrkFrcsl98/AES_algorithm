@@ -526,6 +526,7 @@ public:
     core._finalRound(AesEngineT::Nr);
     core._setOutput(tmpOut);
     block = std::string(tmpOut.begin(), tmpOut.end());
+     iv.assign(tmpOut.begin(), tmpOut.end());
   }
 
   template <typename AesEngineT>
@@ -543,6 +544,7 @@ public:
       tmpOut[i] ^= iv[i];
     }
     block = std::string(tmpOut.begin(), tmpOut.end());
+    
   }
 };
 
@@ -878,6 +880,24 @@ static void run() {
   S_THRESHOLD += c;
   std::cout << "Test Execution Finished... total tests passed = " << std::dec << (int)tscore << "/"
             << (int)S_THRESHOLD << "\n";
+
+  AesCryptoModule::AES_Encryption<128, AesCryptoModule::AESMode::CBC> enc;
+    AesCryptoModule::AES_Encryption<128, AesCryptoModule::AESMode::CBC> dec;
+    std::string input = "some message right here!!!";
+    std::string key = AesCryptoModule::AESUtils::genSecKeyBlock(128);
+    std::vector<byte> iv;
+    AesCryptoModule::AESUtils::GenerateIvBlock(iv);
+
+    std::vector<byte> out = enc.apply(input, key, iv);
+    std::string strOut = std::string(out.begin(), out.end());
+    std::cout << "CBC result: ";
+    for(const int i: strOut) std::cout << std::setw(2) << std::hex <<std::setfill('0') << (int)i << " ";
+    std::cout << "\n";
+
+    std::vector<byte> decrypted = dec.apply(strOut, key, iv);
+    std::string strDec = std::string(decrypted.begin(), decrypted.end());
+    std::cout << "CBC Decrypted: " << strDec << "\n";
+    
 };
 
 }; // namespace Test
