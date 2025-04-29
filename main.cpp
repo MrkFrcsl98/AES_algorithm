@@ -3,7 +3,7 @@
 int main() {
   try {
 
-    AesCryptoModule::Test::run(); // init test
+    AesCryptoModule::Test::runGlobal();
     
     return 0;
   } catch (const std::exception &e) {
