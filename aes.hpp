@@ -47,9 +47,7 @@ private:
   }
 
 public:
-  PRNG(size_t seed = std::time(nullptr), size_t sequence = 1) : state(seed), mti(N) {
-    init_mersenne_twister(seed);
-  };
+  PRNG(size_t seed = std::time(nullptr), size_t sequence = 1) : state(seed), mti(N) { init_mersenne_twister(seed); };
 
   __attribute__((cold)) const size_t MersenneTwister(const size_t min, const size_t max) {
     if (min >= max) [[unlikely]]
@@ -91,8 +89,7 @@ public:
   AESUtils(AESUtils &&c) = delete;
   ~AESUtils() = default;
 
-  __attribute__((hot, pure, nothrow)) static inline constexpr byte
-  galloisFieldMultiplication(byte a, byte b) noexcept {
+  __attribute__((hot, pure, nothrow)) static inline constexpr byte galloisFieldMultiplication(byte a, byte b) noexcept {
     byte p = 0;
     for (uint16_t i = 0; i < 8; ++i) {
       if (b & 1) {
@@ -125,19 +122,15 @@ public:
     return result;
   }
 
-  __attribute__((cold, pure, nothrow)) static constexpr byte createSBoxEntry(byte x) noexcept {
-    return affineTransform(galloisFieldInverse(x));
-  }
+  __attribute__((cold, pure, nothrow)) static constexpr byte createSBoxEntry(byte x) noexcept { return affineTransform(galloisFieldInverse(x)); }
 
-  __attribute__((cold, leaf, nothrow)) inline static constexpr void
-  createSBox(std::array<byte, 256> &sbox) noexcept {
+  __attribute__((cold, leaf, nothrow)) inline static constexpr void createSBox(std::array<byte, 256> &sbox) noexcept {
     for (uint16_t i = 0; i < 256; ++i) {
       sbox[i] = createSBoxEntry(static_cast<byte>(i));
     }
   }
 
-  __attribute__((cold, leaf, nothrow)) static constexpr void
-  createInvSBox(const std::array<byte, 256> &sbox, std::array<byte, 256> &invSbox) noexcept {
+  __attribute__((cold, leaf, nothrow)) static constexpr void createInvSBox(const std::array<byte, 256> &sbox, std::array<byte, 256> &invSbox) noexcept {
     for (uint16_t i = 0; i < 256; ++i) {
       invSbox[sbox[i]] = static_cast<byte>(i);
     }
@@ -151,16 +144,14 @@ public:
     }
   }
 
-  __attribute__((cold, leaf, nothrow)) static constexpr void
-  createMixCols(std::array<std::array<byte, 4>, 4> &mixCols) noexcept {
+  __attribute__((cold, leaf, nothrow)) static constexpr void createMixCols(std::array<std::array<byte, 4>, 4> &mixCols) noexcept {
     mixCols[0] = {0x02, 0x03, 0x01, 0x01};
     mixCols[1] = {0x01, 0x02, 0x03, 0x01};
     mixCols[2] = {0x01, 0x01, 0x02, 0x03};
     mixCols[3] = {0x03, 0x01, 0x01, 0x02};
   }
 
-  __attribute__((cold, leaf, nothrow)) static constexpr void
-  createInvMixCols(std::array<std::array<byte, 4>, 4> &invMixCols) noexcept {
+  __attribute__((cold, leaf, nothrow)) static constexpr void createInvMixCols(std::array<std::array<byte, 4>, 4> &invMixCols) noexcept {
     invMixCols[0] = {0x0E, 0x0B, 0x0D, 0x09};
     invMixCols[1] = {0x09, 0x0E, 0x0B, 0x0D};
     invMixCols[2] = {0x0D, 0x09, 0x0E, 0x0B};
@@ -168,11 +159,9 @@ public:
   }
 
   __attribute__((cold)) static const std::string genSecKeyBlock(const uint16_t key_size) {
-    const char alpha[26 * 2 + 12] = {'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm',
-                                     'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z',
-                                     'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M',
-                                     'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z',
-                                     '.', ',', '!', '@', '#', '$', '%', '^', '&', '*', '+', '-'};
+    const char alpha[26 * 2 + 12] = {'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v',
+                                     'w', 'x', 'y', 'z', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R',
+                                     'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z', '.', ',', '!', '@', '#', '$', '%', '^', '&', '*', '+', '-'};
     if (key_size != AES128KS && key_size != AES256KS && key_size != AES192KS)
       return "";
     std::string seckey;
@@ -226,12 +215,10 @@ template <uint16_t BlockSz, typename Enable = void> class AesEngine;
 using RoundKeysT = std::vector<std::vector<byte>>;
 using StateMatrixT = RoundKeysT;
 
-template <uint16_t BlockSz>
-class AesEngine<BlockSz, typename std::enable_if<IsValidBlockSize<BlockSz>::value>::type> {
+template <uint16_t BlockSz> class AesEngine<BlockSz, typename std::enable_if<IsValidBlockSize<BlockSz>::value>::type> {
 public:
   static constexpr byte Nk = BlockSz / 32;
-  static constexpr byte Nr =
-      BlockSz == AES128KS ? AES128_ROUNDS : (BlockSz == AES192KS ? AES192_ROUNDS : AES256_ROUNDS);
+  static constexpr byte Nr = BlockSz == AES128KS ? AES128_ROUNDS : (BlockSz == AES192KS ? AES192_ROUNDS : AES256_ROUNDS);
   size_t iSz;
   size_t kSz;
   struct AesParameters parameter;
@@ -249,15 +236,12 @@ public:
   __attribute__((cold)) void _validateParameters(const std::string &input, const std::string &key) {
     this->iSz = input.size();
     this->kSz = key.size();
-    if (this->iSz >= UINT64_MAX || this->iSz == 0 ||
-        (this->kSz != (AES256KS / 8) && this->kSz != (AES128KS / 8) && this->kSz != (AES192KS / 8)))
-        [[unlikely]] {
+    if (this->iSz >= UINT64_MAX || this->iSz == 0 || (this->kSz != (AES256KS / 8) && this->kSz != (AES128KS / 8) && this->kSz != (AES192KS / 8))) [[unlikely]] {
       throw std::invalid_argument("invalid input or key!");
     }
   }
 
-  __attribute__((cold, nothrow)) inline void _bindParameters(const std::string &input,
-                                                             const std::string &key) noexcept {
+  __attribute__((cold, nothrow)) inline void _bindParameters(const std::string &input, const std::string &key) noexcept {
     this->parameter.data.assign(input.begin(), input.end());
     this->parameter.key.assign(key.begin(), key.end());
   }
@@ -284,12 +268,10 @@ public:
       std::vector<byte> kRound = this->round_keys[i - 1];
       if (i % Nk == 0) {
         this->_keyRotate(kRound, 1);
-        std::transform(kRound.begin(), kRound.end(), kRound.begin(),
-                       [](byte b) { return AESUtils::SBox[b]; });
+        std::transform(kRound.begin(), kRound.end(), kRound.begin(), [](byte b) { return AESUtils::SBox[b]; });
         kRound[0] ^= AESUtils::RCon[i / Nk];
       } else if (Nk > 6 && (i % Nk == 4)) {
-        std::transform(kRound.begin(), kRound.end(), kRound.begin(),
-                       [](byte b) { return AESUtils::SBox[b]; });
+        std::transform(kRound.begin(), kRound.end(), kRound.begin(), [](byte b) { return AESUtils::SBox[b]; });
       }
       for (byte j = 0; j < kRound.size(); ++j) {
         this->round_keys[i][j] = this->round_keys[i - Nk][j] ^ kRound[j];
@@ -344,14 +326,10 @@ public:
   __attribute__((hot, nothrow)) inline void _mixColumns() noexcept {
     for (uint8_t i = 0; i < Nb; ++i) {
       std::array<byte, 4> temp;
-      temp[0] = __gfmultip2(this->state_matrix[0][i]) ^ __gfmultip3(this->state_matrix[1][i]) ^
-                this->state_matrix[2][i] ^ this->state_matrix[3][i];
-      temp[1] = this->state_matrix[0][i] ^ __gfmultip2(this->state_matrix[1][i]) ^
-                __gfmultip3(this->state_matrix[2][i]) ^ this->state_matrix[3][i];
-      temp[2] = this->state_matrix[0][i] ^ this->state_matrix[1][i] ^ __gfmultip2(this->state_matrix[2][i]) ^
-                __gfmultip3(this->state_matrix[3][i]);
-      temp[3] = __gfmultip3(this->state_matrix[0][i]) ^ this->state_matrix[1][i] ^ this->state_matrix[2][i] ^
-                __gfmultip2(this->state_matrix[3][i]);
+      temp[0] = __gfmultip2(this->state_matrix[0][i]) ^ __gfmultip3(this->state_matrix[1][i]) ^ this->state_matrix[2][i] ^ this->state_matrix[3][i];
+      temp[1] = this->state_matrix[0][i] ^ __gfmultip2(this->state_matrix[1][i]) ^ __gfmultip3(this->state_matrix[2][i]) ^ this->state_matrix[3][i];
+      temp[2] = this->state_matrix[0][i] ^ this->state_matrix[1][i] ^ __gfmultip2(this->state_matrix[2][i]) ^ __gfmultip3(this->state_matrix[3][i]);
+      temp[3] = __gfmultip3(this->state_matrix[0][i]) ^ this->state_matrix[1][i] ^ this->state_matrix[2][i] ^ __gfmultip2(this->state_matrix[3][i]);
       for (uint8_t j = 0; j < 4; ++j) {
         this->state_matrix[j][i] = temp[j];
       }
@@ -361,29 +339,23 @@ public:
   __attribute__((hot, nothrow)) inline void _invMixColumns() noexcept {
     for (uint8_t i = 0; i < Nb; ++i) {
       std::array<byte, 4> temp;
-      temp[0] = __gfmultip14(this->state_matrix[0][i]) ^ __gfmultip11(this->state_matrix[1][i]) ^
-                __gfmultip13(this->state_matrix[2][i]) ^ __gfmultip9(this->state_matrix[3][i]);
-      temp[1] = __gfmultip9(this->state_matrix[0][i]) ^ __gfmultip14(this->state_matrix[1][i]) ^
-                __gfmultip11(this->state_matrix[2][i]) ^ __gfmultip13(this->state_matrix[3][i]);
-      temp[2] = __gfmultip13(this->state_matrix[0][i]) ^ __gfmultip9(this->state_matrix[1][i]) ^
-                __gfmultip14(this->state_matrix[2][i]) ^ __gfmultip11(this->state_matrix[3][i]);
-      temp[3] = __gfmultip11(this->state_matrix[0][i]) ^ __gfmultip13(this->state_matrix[1][i]) ^
-                __gfmultip9(this->state_matrix[2][i]) ^ __gfmultip14(this->state_matrix[3][i]);
+      temp[0] = __gfmultip14(this->state_matrix[0][i]) ^ __gfmultip11(this->state_matrix[1][i]) ^ __gfmultip13(this->state_matrix[2][i]) ^
+                __gfmultip9(this->state_matrix[3][i]);
+      temp[1] = __gfmultip9(this->state_matrix[0][i]) ^ __gfmultip14(this->state_matrix[1][i]) ^ __gfmultip11(this->state_matrix[2][i]) ^
+                __gfmultip13(this->state_matrix[3][i]);
+      temp[2] = __gfmultip13(this->state_matrix[0][i]) ^ __gfmultip9(this->state_matrix[1][i]) ^ __gfmultip14(this->state_matrix[2][i]) ^
+                __gfmultip11(this->state_matrix[3][i]);
+      temp[3] = __gfmultip11(this->state_matrix[0][i]) ^ __gfmultip13(this->state_matrix[1][i]) ^ __gfmultip9(this->state_matrix[2][i]) ^
+                __gfmultip14(this->state_matrix[3][i]);
       for (uint8_t j = 0; j < 4; ++j) {
         this->state_matrix[j][i] = temp[j];
       }
     }
   }
 
-  __attribute__((hot, nothrow, pure)) inline constexpr byte __gfmultip2(const byte x) const noexcept {
-    return (x << 1) ^ ((x & 0x80) ? 0x1B : 0x00);
-  }
-  __attribute__((hot, nothrow, pure)) inline constexpr byte __gfmultip3(const byte x) const noexcept {
-    return __gfmultip2(x) ^ x;
-  }
-  __attribute__((hot, nothrow, pure)) inline constexpr byte __gfmultip9(const byte x) const noexcept {
-    return __gfmultip2(__gfmultip2(__gfmultip2(x))) ^ x;
-  }
+  __attribute__((hot, nothrow, pure)) inline constexpr byte __gfmultip2(const byte x) const noexcept { return (x << 1) ^ ((x & 0x80) ? 0x1B : 0x00); }
+  __attribute__((hot, nothrow, pure)) inline constexpr byte __gfmultip3(const byte x) const noexcept { return __gfmultip2(x) ^ x; }
+  __attribute__((hot, nothrow, pure)) inline constexpr byte __gfmultip9(const byte x) const noexcept { return __gfmultip2(__gfmultip2(__gfmultip2(x))) ^ x; }
   __attribute__((hot, nothrow, pure)) inline constexpr byte __gfmultip11(const byte x) const noexcept {
     return __gfmultip2(__gfmultip2(__gfmultip2(x))) ^ __gfmultip2(x) ^ x;
   }
@@ -416,8 +388,7 @@ public:
     }
   }
 
-  __attribute__((cold, nothrow)) inline std::string _pkcs7Attach(const std::string &input,
-                                                                 size_t blockSize) noexcept {
+  __attribute__((cold, nothrow)) inline std::string _pkcs7Attach(const std::string &input, size_t blockSize) noexcept {
     uint8_t paddingSize = blockSize - (input.size() % blockSize);
     std::string padded(input);
     padded.reserve(input.size() + paddingSize);
@@ -447,14 +418,12 @@ public:
     return paddedInput;
   }
 
-  __attribute__((hot, always_inline, nothrow)) inline void
-  _blockDigest(std::vector<byte> &tmp, std::vector<byte> &out, std::string &block) noexcept {
+  __attribute__((hot, always_inline, nothrow)) inline void _blockDigest(std::vector<byte> &tmp, std::vector<byte> &out, std::string &block) noexcept {
     tmp.assign(block.begin(), block.end());
     out.insert(out.end(), tmp.begin(), tmp.end());
   };
 
-  __attribute__((hot, always_inline, nothrow)) inline void _createBlock(std::string &out,
-                                                                        const uint16_t offset) {
+  __attribute__((hot, always_inline, nothrow)) inline void _createBlock(std::string &out, const uint16_t offset) {
     out = std::string(this->parameter.data.begin() + offset, this->parameter.data.begin() + offset + 16);
   };
 };
@@ -468,13 +437,9 @@ public:
   ECB_Mode &operator=(ECB_Mode &&) noexcept = delete;
   ~ECB_Mode() noexcept {};
 
-  __attribute__((hot, always_inline, nothrow)) inline static const bool
-  isValidBlock(std::string &block) noexcept {
-    return block.size() == 16;
-  };
+  __attribute__((hot, always_inline, nothrow)) inline static const bool isValidBlock(std::string &block) noexcept { return block.size() == 16; };
 
-  template <typename AesEngineT>
-  __attribute__((hot, always_inline)) inline static void Encryption(AesEngineT &core, std::string &block) {
+  template <typename AesEngineT> __attribute__((hot, always_inline)) inline static void Encryption(AesEngineT &core, std::string &block) {
     if (!isValidBlock(block)) [[unlikely]] {
       throw std::invalid_argument("Invalid block size for ECB encryption");
     }
@@ -487,8 +452,7 @@ public:
     block = std::string(tmpOut.begin(), tmpOut.end());
   }
 
-  template <typename AesEngineT>
-  __attribute__((hot, always_inline)) inline static void Decryption(AesEngineT &core, std::string &block) {
+  template <typename AesEngineT> __attribute__((hot, always_inline)) inline static void Decryption(AesEngineT &core, std::string &block) {
     if (!isValidBlock(block)) [[unlikely]] {
       throw std::invalid_argument("Invalid block size for ECB decryption");
     }
@@ -511,14 +475,10 @@ public:
   CBC_Mode &operator=(CBC_Mode &&) noexcept = delete;
   ~CBC_Mode() noexcept {};
 
-  template <typename AesEngineT>
-  static void Encryption(AesEngineT &core, std::string &block, std::vector<byte> &iv) {
+  template <typename AesEngineT> static void Encryption(AesEngineT &core, std::string &block, std::vector<byte> &iv) {
     if (block.size() != 16) [[unlikely]] {
       throw std::invalid_argument("Invalid block size for CBC encryption");
     }
-    std::cout << "+IV After: ";
-    for(const auto x: iv) std::cout << std::hex << (int)x << " ";
-    std::cout << "\n";
     for (size_t i = 0; i < 16; ++i) {
       block[i] ^= iv[i];
     }
@@ -529,45 +489,36 @@ public:
     core._finalRound(AesEngineT::Nr);
     core._setOutput(tmpOut);
     block = std::string(tmpOut.begin(), tmpOut.end());
-    iv.assign(tmpOut.begin(), tmpOut.end());
-    
+    iv = std::move(tmpOut);
   }
 
-  template <typename AesEngineT>
-  static void Decryption(AesEngineT &core, std::string &block, std::vector<byte> &iv) {
+  template <typename AesEngineT> static void Decryption(AesEngineT &core, std::string &block, std::vector<byte> &iv) {
     if (block.size() != 16) [[unlikely]] {
       throw std::invalid_argument("Invalid block size for CBC decryption");
     }
-    std::vector<byte> tmp(block.begin(), block.end());
-    std::cout << "-IV After: ";
-    for(const auto x: iv) std::cout << std::hex << (int)x << " ";
-    std::cout << "\n";
     std::vector<byte> tmpOut(16);
     core._initStateMatrix(block);
     core._addRoundKey(AesEngineT::Nr);
     core._initMainRounds();
     core._finalRound(0);
-    core._setOutput(tmpOut);    
-    
+    core._setOutput(tmpOut);
+
     for (size_t i = 0; i < 16; ++i) {
       tmpOut[i] ^= iv[i];
     }
+    iv.assign(block.begin(), block.end());
     block = std::string(tmpOut.begin(), tmpOut.end());
-    iv.assign(tmp.begin(), tmp.end());
-    
   }
 };
 
 template <uint16_t BlockSz, AESMode Mode>
-class AES_Encryption<BlockSz, Mode, typename std::enable_if<IsValidBlockSize<BlockSz>::value>::type>
-    : public AesEngine<BlockSz> {
+class AES_Encryption<BlockSz, Mode, typename std::enable_if<IsValidBlockSize<BlockSz>::value>::type> : public AesEngine<BlockSz> {
 public:
   AES_Encryption() noexcept = default;
   AES_Encryption(const AES_Encryption &) noexcept = delete;
   AES_Encryption(AES_Encryption &&) noexcept = delete;
 
-  __attribute__((cold)) const std::vector<byte> apply(const std::string &input, const std::string &key,
-                                                      std::vector<byte> &iv = {}) {
+  __attribute__((cold)) const std::vector<byte> apply(const std::string &input, const std::string &key, std::vector<byte> &iv = {}) {
     std::vector<byte> result;
     this->_generateAesConstants();
     this->_validateParameters(input, key);
@@ -586,7 +537,7 @@ public:
     block.reserve(16);
     for (uint8_t i = 0; i < this->parameter.data.size(); i += 16) {
       this->_createBlock(block, i);
-      switch (Mode) {
+      switch ((int)Mode) {
       case AESMode::CBC:
         CBC_Mode::Encryption(*this, block, iv);
         break;
@@ -624,15 +575,13 @@ public:
   }
 };
 template <uint16_t BlockSz, AESMode Mode>
-class AES_Decryption<BlockSz, Mode, typename std::enable_if<IsValidBlockSize<BlockSz>::value>::type>
-    : public AesEngine<BlockSz> {
+class AES_Decryption<BlockSz, Mode, typename std::enable_if<IsValidBlockSize<BlockSz>::value>::type> : public AesEngine<BlockSz> {
 public:
   AES_Decryption() noexcept = default;
   AES_Decryption(const AES_Decryption &) noexcept = delete;
   AES_Decryption(AES_Decryption &&) noexcept = delete;
 
-  __attribute__((cold)) const std::vector<byte> apply(const std::string &input, const std::string &key,
-                                                      std::vector<byte> &iv = {}) {
+  __attribute__((cold)) const std::vector<byte> apply(const std::string &input, const std::string &key, std::vector<byte> &iv = {}) {
     std::vector<byte> result;
     this->_generateAesConstants();
     this->_validateParameters(input, key);
@@ -643,15 +592,16 @@ public:
     this->_pkcs7Dettach(result);
     return result;
   }
+
   ~AES_Decryption() noexcept override = default;
 
   void _modeTransformation(std::vector<byte> &out, std::vector<byte> &iv) {
     std::vector<byte> tmp(16);
     std::string block;
-    block.reserve(16);
+    block.resize(16);
     for (uint8_t i = 0; i < this->parameter.data.size(); i += 16) {
       this->_createBlock(block, i);
-      switch (Mode) {
+      switch ((int)Mode) {
       case AESMode::CBC:
         CBC_Mode::Decryption(*this, block, iv);
         break;
@@ -733,11 +683,9 @@ public:
   };
 
   static const std::string genSecKeyBlock(const uint16_t key_size) {
-    const char alpha[26 * 2 + 22] = {
-        'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's',
-        't', 'u', 'v', 'w', 'x', 'y', 'z', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L',
-        'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z', '.', ',', '!', '@', '#',
-        '$', '%', '^', '&', '*', '+', '-', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9'};
+    const char alpha[26 * 2 + 22] = {'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y',
+                                     'z', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X',
+                                     'Y', 'Z', '.', ',', '!', '@', '#', '$', '%', '^', '&', '*', '+', '-', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9'};
     if (key_size != AES128KS && key_size != AES256KS && key_size != AES192KS)
       return "";
     std::string seckey;
@@ -798,24 +746,33 @@ public:
 
 static const std::string cPlaintext("this is a secret message to deliver!");
 static std::string plaintext(cPlaintext.begin(), cPlaintext.begin() + 1);
-static std::string keyAES128(CSPRNG::genSecKeyBlock(128));  
-static std::string keyAES192(CSPRNG::genSecKeyBlock(192)); 
+static std::string keyAES128(CSPRNG::genSecKeyBlock(128));
+static std::string keyAES192(CSPRNG::genSecKeyBlock(192));
 static std::string keyAES256(CSPRNG::genSecKeyBlock(256));
 static std::vector<byte> IV(16);
 
-static size_t tscore = 3; // for 3 test cases(128, 192, 256) starting from index 0
+static size_t tscore = 3*2;
 static size_t S_THRESHOLD = 0;
 
-static constexpr size_t exec_delay = 20; // set the delay between each execution(ms)
+static constexpr size_t exec_delay = 10; // delay between each execution(ms)
 
-// defining the AES instances that will be used later
-AES_Encryption<AES128KS, AESMode::ECB> aes128Encryptor;
-AES_Encryption<AES192KS, AESMode::ECB> aes192Encryptor;
-AES_Encryption<AES256KS, AESMode::ECB> aes256Encryptor;
+// AES ECB Mode, multiple key size constructors
+AES_Encryption<AES128KS, AESMode::ECB> aesECB128Encryptor;
+AES_Encryption<AES192KS, AESMode::ECB> aesECB192Encryptor;
+AES_Encryption<AES256KS, AESMode::ECB> aesECB256Encryptor;
 
-AES_Decryption<AES128KS, AESMode::ECB> aes128Decryptor;
-AES_Decryption<AES192KS, AESMode::ECB> aes192Decryptor;
-AES_Decryption<AES256KS, AESMode::ECB> aes256Decryptor;
+AES_Decryption<AES128KS, AESMode::ECB> aesECB128Decryptor;
+AES_Decryption<AES192KS, AESMode::ECB> aesECB192Decryptor;
+AES_Decryption<AES256KS, AESMode::ECB> aesECB256Decryptor;
+
+// AES ECB Mode, multiple key size constructors
+AES_Encryption<AES128KS, AESMode::CBC> aesCBC128Encryptor;
+AES_Encryption<AES192KS, AESMode::CBC> aesCBC192Encryptor;
+AES_Encryption<AES256KS, AESMode::CBC> aesCBC256Encryptor;
+
+AES_Decryption<AES128KS, AESMode::CBC> aesCBC128Decryptor;
+AES_Decryption<AES192KS, AESMode::CBC> aesCBC192Decryptor;
+AES_Decryption<AES256KS, AESMode::CBC> aesCBC256Decryptor;
 
 static void printPlaintext() {
   std::cout << "Plaintext(Hex):        ";
@@ -834,81 +791,113 @@ static void printResult(const std::string_view l, const std::vector<byte> &data)
   std::this_thread::sleep_for(std::chrono::milliseconds(exec_delay));
 };
 
-static void runAesTest(const uint16_t ks) {
+static void runAesTest(const uint16_t ks, const AesCryptoModule::AESMode MODE = AESMode::ECB) {
+
   std::vector<byte> encryptedData, decryptedData;
+  const std::string model(
+      MODE == AESMode::ECB ? "ECB"
+                           : (MODE == AESMode::CBC ? "CBC" : (MODE == AESMode::CFB ? "CFB" : (MODE == AESMode::CTR ? "CTR" : (MODE == AESMode::OFB ? "OFB" : "GCM")))));
+
   if (ks == AES128KS) {
-    encryptedData = aes128Encryptor.apply(plaintext, keyAES128, IV);
-    decryptedData = aes128Decryptor.apply(std::string(encryptedData.begin(), encryptedData.end()), keyAES128, IV);
-    printResult("AES128 Encrypted(Hex): ", encryptedData);
-    printResult("AES128 Decrypted(Hex): ", decryptedData);
+    if (MODE == AESMode::ECB) {
+      encryptedData = aesECB128Encryptor.apply(plaintext, keyAES128, IV);
+      decryptedData = aesECB128Decryptor.apply(std::string(encryptedData.begin(), encryptedData.end()), keyAES128, IV);
+    } else if (MODE == AESMode::CBC) {
+      std::vector<byte> iv = IV;
+      encryptedData = aesCBC128Encryptor.apply(plaintext, keyAES128, iv);
+      iv = IV;
+      decryptedData = aesCBC128Decryptor.apply(std::string(encryptedData.begin(), encryptedData.end()), keyAES128, iv);
+    }
+    printResult(std::string("AES(128) ") += model + " -> Encrypted(Hex): ", encryptedData);
+    printResult(std::string("AES(128) ") += model + " -> Decrypted(Hex): ", decryptedData);
     tscore += std::string(decryptedData.begin(), decryptedData.end()) == plaintext ? 1 : 0;
   } else if (ks == AES192KS) {
-    encryptedData = aes192Encryptor.apply(plaintext, keyAES192, IV);
-    decryptedData = aes192Decryptor.apply(std::string(encryptedData.begin(), encryptedData.end()), keyAES192, IV);
-    printResult("AES192 Encrypted(Hex): ", encryptedData);
-    printResult("AES192 Decrypted(Hex): ", decryptedData);
+    if (MODE == AESMode::ECB) {
+      encryptedData = aesECB192Encryptor.apply(plaintext, keyAES192, IV);
+      decryptedData = aesECB192Decryptor.apply(std::string(encryptedData.begin(), encryptedData.end()), keyAES192, IV);
+    } else if (MODE == AESMode::CBC) {
+      std::vector<byte> iv = IV;
+      encryptedData = aesCBC192Encryptor.apply(plaintext, keyAES192, iv);
+      iv = IV;
+      decryptedData = aesCBC192Decryptor.apply(std::string(encryptedData.begin(), encryptedData.end()), keyAES192, iv);
+    }
+    printResult(std::string("AES(192) ") += model + " -> Encrypted(Hex): ", encryptedData);
+    printResult(std::string("AES(192) ") += model + " -> Decrypted(Hex): ", decryptedData);
     tscore += std::string(decryptedData.begin(), decryptedData.end()) == plaintext ? 1 : 0;
   } else {
-    encryptedData = aes256Encryptor.apply(plaintext, keyAES256, IV);
-    decryptedData = aes256Decryptor.apply(std::string(encryptedData.begin(), encryptedData.end()), keyAES256, IV);
-    printResult("AES256 Encrypted(Hex): ", encryptedData);
-    printResult("AES256 Decrypted(Hex): ", decryptedData);
+    if (MODE == AESMode::ECB) {
+      encryptedData = aesECB256Encryptor.apply(plaintext, keyAES256, IV);
+      decryptedData = aesECB256Decryptor.apply(std::string(encryptedData.begin(), encryptedData.end()), keyAES256, IV);
+    } else if (MODE == AESMode::CBC) {
+      std::vector<byte> iv = IV;
+      encryptedData = aesCBC256Encryptor.apply(plaintext, keyAES256, iv);
+      iv = IV;
+      decryptedData = aesCBC256Decryptor.apply(std::string(encryptedData.begin(), encryptedData.end()), keyAES256, iv);
+    }
+    printResult(std::string("AES(256) ") += model + " -> Encrypted(Hex): ", encryptedData);
+    printResult(std::string("AES(256) ") += model + " -> Decrypted(Hex): ", decryptedData);
     tscore += std::string(decryptedData.begin(), decryptedData.end()) == plaintext ? 1 : 0;
   }
 };
 
-static void run() {
+static const uint16_t threshold = cPlaintext.length();
+static uint16_t c = 0;
+
+static void execAES128(const AESMode M) {
+  c = 0;
+  while (++c < threshold) {
+    plaintext = std::string(cPlaintext.begin(), cPlaintext.begin() + c);
+    keyAES128 = CSPRNG::genSecKeyBlock(128);
+    AESUtils::GenerateIvBlock(IV);
+    runAesTest(128, M);
+  }
+  S_THRESHOLD += c;
+};
+
+static void execAES192(const AESMode M) {
+  c = 0;
+  while (++c < threshold) {
+    plaintext = std::string(cPlaintext.begin(), cPlaintext.begin() + c);
+    keyAES192 = CSPRNG::genSecKeyBlock(192);
+    AESUtils::GenerateIvBlock(IV);
+    runAesTest(192, M);
+  }
+  S_THRESHOLD += c;
+};
+
+static void execAES256(const AESMode M) {
+  c = 0;
+  while (++c < threshold) {
+    plaintext = std::string(cPlaintext.begin(), cPlaintext.begin() + c);
+    keyAES256 = CSPRNG::genSecKeyBlock(256);
+    AESUtils::GenerateIvBlock(IV);
+    runAesTest(256, M);
+  }
+  S_THRESHOLD += c;
+};
+
+static void run_AES_ECB_test() {
+  std::cout << "\n*********** Execute AES ECB Mode ***********\n";
+  std::thread([&] { execAES128(AESMode::ECB); }).join();
+  std::thread([&] { execAES192(AESMode::ECB); }).join();
+  std::thread([&] { execAES256(AESMode::ECB); }).join();
+};
+
+static void run_AES_CBC_test() {
+  std::cout << "\n*********** Execute AES CBC Mode ***********\n";
+  std::thread([&] { execAES128(AESMode::CBC); }).join();
+  std::thread([&] { execAES192(AESMode::CBC); }).join();
+  std::thread([&] { execAES256(AESMode::CBC); }).join();
+};
+
+static void runGlobal() {
 
   printPlaintext();
-  
-  // const uint16_t threshold = cPlaintext.length();
-  // uint16_t c = 0;
-  // while (++c < threshold) {
-  //   plaintext = std::string(cPlaintext.begin(), cPlaintext.begin() + c);
-  //   keyAES128 = CSPRNG::genSecKeyBlock(128);
-  //   AESUtils::GenerateIvBlock(IV);
-  //   runAesTest(128);
-  // }
-  // S_THRESHOLD += c; // updating threshold of score counter ...
 
-  // c = 0; // reset iteration counter for the next case
-  // while (++c < threshold) {
-  //   plaintext = std::string(cPlaintext.begin(), cPlaintext.begin() + c);
-  //   AESUtils::GenerateIvBlock(IV);
-  //   keyAES192 = CSPRNG::genSecKeyBlock(192);
-  //   runAesTest(192);
-  // }
-  // S_THRESHOLD += c;
+  run_AES_ECB_test();
+  run_AES_CBC_test();
 
-  // c = 0;
-  // while (++c < threshold) {
-  //   plaintext = std::string(cPlaintext.begin(), cPlaintext.begin() + c);
-  //   AESUtils::GenerateIvBlock(IV);
-  //   keyAES256 = CSPRNG::genSecKeyBlock(256);
-  //   runAesTest(256);
-  // }
-  // S_THRESHOLD += c;
-  // std::cout << "Test Execution Finished... total tests passed = " << std::dec << (int)tscore << "/"
-  //           << (int)S_THRESHOLD << "\n";
-
-  AesCryptoModule::AES_Encryption<128, AesCryptoModule::AESMode::CBC> enc;
-    AesCryptoModule::AES_Encryption<128, AesCryptoModule::AESMode::CBC> dec;
-    std::string input = "some message right";
-    std::string key = AesCryptoModule::AESUtils::genSecKeyBlock(128);
-    std::vector<byte> iv,oiv;
-    AesCryptoModule::AESUtils::GenerateIvBlock(oiv);
-    iv.assign(oiv.begin(), oiv.end());
-
-    std::vector<byte> out = enc.apply(input, key, iv);
-    std::string strOut = std::string(out.begin(), out.end());
-    std::cout << "CBC result: ";
-    for(const int i: strOut) std::cout << std::hex << std::setw(2) << std::setfill('0') << (int)i << " ";
-    std::cout << "\n";
-    iv = oiv;
-    std::vector<byte> decrypted = dec.apply(strOut, key, iv);
-    std::string strDec = std::string(decrypted.begin(), decrypted.end());
-    std::cout << "CBC Decrypted: " << strDec << "\n";
-
+  std::cout << "Test Execution Finished... total tests passed = " << std::dec << (int)tscore << "/" << (int)S_THRESHOLD << "\n";
 };
 
 }; // namespace Test
