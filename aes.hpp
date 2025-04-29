@@ -9,19 +9,20 @@
 #include <iostream>    // required for the CSPRNG function
 #include <stdexcept>   // exceptions
 #include <string>      // std::string
-#include <thread>      // for std::this_thread::sleep_for(...)
+#include <thread>      // for std::this_thread::sleep_for(...), std::thread().join()...
 #include <type_traits> // for some type trait implementation
-#include <vector>      // dynamic memory arrays
+#include <vector>      // dynamic memory allocation sequence
 
 #ifndef __MFAES_BLOCK_CIPHER_lbv01__
 #define __MFAES_BLOCK_CIPHER_lbv01__ 0x01
 
-constexpr uint16_t AES128KS = 128;
-constexpr uint16_t AES192KS = 192;
-constexpr uint16_t AES256KS = 256;
-constexpr uint8_t AES128_ROUNDS = 10;
-constexpr uint8_t AES192_ROUNDS = 12;
-constexpr uint8_t AES256_ROUNDS = 14;
+constexpr uint16_t AES128KS = 0x80;
+constexpr uint16_t AES192KS = 0xC0;
+constexpr uint16_t AES256KS = 0x100;
+constexpr uint8_t AES128_ROUNDS = 0x0A;
+constexpr uint8_t AES192_ROUNDS = 0x0C;
+constexpr uint8_t AES256_ROUNDS = 0x0E;
+constexpr uint8_t IV_BLOCK_SIZE = 0x10;
 
 using byte = uint8_t;
 
@@ -29,8 +30,8 @@ namespace AesCryptoModule {
 
 class PRNG {
 private:
-  static constexpr size_t N = 624;
-  static constexpr size_t M = 397;
+  static constexpr size_t N = 0x270;
+  static constexpr size_t M = 0x17B;
   static constexpr size_t MATRIX_A = 0x9908b0dfUL;
   static constexpr size_t UPPER_MASK = 0x80000000UL;
   static constexpr size_t LOWER_MASK = 0x7fffffffUL;
@@ -439,29 +440,29 @@ public:
 
   __attribute__((hot, always_inline, nothrow)) inline static const bool isValidBlock(std::string &block) noexcept { return block.size() == 16; };
 
-  template <typename AesEngineT> __attribute__((hot, always_inline)) inline static void Encryption(AesEngineT &core, std::string &block) {
+  template <typename AesEngineT> __attribute__((hot, always_inline)) inline static void Encryption(AesEngineT *core, std::string &block) {
     if (!isValidBlock(block)) [[unlikely]] {
       throw std::invalid_argument("Invalid block size for ECB encryption");
     }
     std::vector<byte> tmpOut(16);
-    core._initStateMatrix(block);
-    core._addRoundKey(0);
-    core._initMainRounds();
-    core._finalRound(AesEngineT::Nr);
-    core._setOutput(tmpOut);
+    core->_initStateMatrix(block);
+    core->_addRoundKey(0);
+    core->_initMainRounds();
+    core->_finalRound(AesEngineT::Nr);
+    core->_setOutput(tmpOut);
     block = std::string(tmpOut.begin(), tmpOut.end());
   }
 
-  template <typename AesEngineT> __attribute__((hot, always_inline)) inline static void Decryption(AesEngineT &core, std::string &block) {
+  template <typename AesEngineT> __attribute__((hot, always_inline)) inline static void Decryption(AesEngineT *core, std::string &block) {
     if (!isValidBlock(block)) [[unlikely]] {
       throw std::invalid_argument("Invalid block size for ECB decryption");
     }
     std::vector<byte> tmpOut(16);
-    core._initStateMatrix(block);
-    core._addRoundKey(AesEngineT::Nr);
-    core._initMainRounds();
-    core._finalRound(0);
-    core._setOutput(tmpOut);
+    core->_initStateMatrix(block);
+    core->_addRoundKey(AesEngineT::Nr);
+    core->_initMainRounds();
+    core->_finalRound(0);
+    core->_setOutput(tmpOut);
     block = std::string(tmpOut.begin(), tmpOut.end());
   }
 };
@@ -475,7 +476,7 @@ public:
   CBC_Mode &operator=(CBC_Mode &&) noexcept = delete;
   ~CBC_Mode() noexcept {};
 
-  template <typename AesEngineT> static void Encryption(AesEngineT &core, std::string &block, std::vector<byte> &iv) {
+  template <typename AesEngineT> static void Encryption(AesEngineT *core, std::string &block, std::vector<byte> &iv) {
     if (block.size() != 16) [[unlikely]] {
       throw std::invalid_argument("Invalid block size for CBC encryption");
     }
@@ -483,25 +484,25 @@ public:
       block[i] ^= iv[i];
     }
     std::vector<byte> tmpOut(16);
-    core._initStateMatrix(block);
-    core._addRoundKey(0);
-    core._initMainRounds();
-    core._finalRound(AesEngineT::Nr);
-    core._setOutput(tmpOut);
+    core->_initStateMatrix(block);
+    core->_addRoundKey(0);
+    core->_initMainRounds();
+    core->_finalRound(AesEngineT::Nr);
+    core->_setOutput(tmpOut);
     block = std::string(tmpOut.begin(), tmpOut.end());
     iv = std::move(tmpOut);
   }
 
-  template <typename AesEngineT> static void Decryption(AesEngineT &core, std::string &block, std::vector<byte> &iv) {
+  template <typename AesEngineT> static void Decryption(AesEngineT *core, std::string &block, std::vector<byte> &iv) {
     if (block.size() != 16) [[unlikely]] {
       throw std::invalid_argument("Invalid block size for CBC decryption");
     }
     std::vector<byte> tmpOut(16);
-    core._initStateMatrix(block);
-    core._addRoundKey(AesEngineT::Nr);
-    core._initMainRounds();
-    core._finalRound(0);
-    core._setOutput(tmpOut);
+    core->_initStateMatrix(block);
+    core->_addRoundKey(AesEngineT::Nr);
+    core->_initMainRounds();
+    core->_finalRound(0);
+    core->_setOutput(tmpOut);
 
     for (size_t i = 0; i < 16; ++i) {
       tmpOut[i] ^= iv[i];
@@ -539,10 +540,10 @@ public:
       this->_createBlock(block, i);
       switch ((int)Mode) {
       case AESMode::CBC:
-        CBC_Mode::Encryption(*this, block, iv);
+        CBC_Mode::Encryption(this, block, iv);
         break;
       default:
-        ECB_Mode::Encryption(*this, block);
+        ECB_Mode::Encryption(this, block);
         break;
       }
       this->_blockDigest(tmp, out, block);
@@ -603,10 +604,10 @@ public:
       this->_createBlock(block, i);
       switch ((int)Mode) {
       case AESMode::CBC:
-        CBC_Mode::Decryption(*this, block, iv);
+        CBC_Mode::Decryption(this, block, iv);
         break;
       default:
-        ECB_Mode::Decryption(*this, block);
+        ECB_Mode::Decryption(this, block);
         break;
       }
       this->_blockDigest(tmp, out, block);
@@ -683,6 +684,7 @@ public:
   };
 
   static const std::string genSecKeyBlock(const uint16_t key_size) {
+    // a readable format ...
     const char alpha[26 * 2 + 22] = {'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y',
                                      'z', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X',
                                      'Y', 'Z', '.', ',', '!', '@', '#', '$', '%', '^', '&', '*', '+', '-', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9'};
@@ -897,7 +899,7 @@ static void runGlobal() {
   run_AES_ECB_test();
   run_AES_CBC_test();
 
-  std::cout << "Test Execution Finished... total tests passed = " << std::dec << (int)tscore << "/" << (int)S_THRESHOLD << "\n";
+  std::cout << "Tests Finished... total tests passed = " << std::dec << (int)tscore << "/" << (int)S_THRESHOLD << "\n";
 };
 
 }; // namespace Test
