@@ -209,8 +209,13 @@ template <uint16_t BlockSz> struct IsValidBlockSize {
 
 enum AESMode { ECB = 0, CBC = 1, CFB = 2, OFB = 3, CTR = 4, GCM = 5 };
 
-template <uint16_t BlockSz, AESMode Mode, typename Enable = void> class AES_Encryption;
-template <uint16_t BlockSz, AESMode Mode, typename Enable = void> class AES_Decryption;
+template <AESMode MODE> struct IsValidModeOfOperation {
+  static constexpr bool value =
+      (MODE == AESMode::ECB || MODE == AESMode::CBC || MODE == AESMode::CFB || MODE == AESMode::OFB || MODE == AESMode::CTR || MODE == AESMode::GCM);
+};
+
+template <uint16_t BlockSz, AESMode Mode, typename EnableM = void, typename Enable = void> class AES_Encryption;
+template <uint16_t BlockSz, AESMode Mode, typename EnableM = void, typename Enable = void> class AES_Decryption;
 template <uint16_t BlockSz, typename Enable = void> class AesEngine;
 
 using RoundKeysT = std::vector<std::vector<byte>>;
@@ -512,27 +517,65 @@ public:
   }
 };
 
+class CTR_Mode {
+public:
+  CTR_Mode() noexcept {};
+  CTR_Mode(const CTR_Mode &) noexcept = delete;
+  CTR_Mode(CTR_Mode &&) noexcept = delete;
+  CTR_Mode &operator=(const CTR_Mode &) noexcept = delete;
+  CTR_Mode &operator=(CTR_Mode &&) noexcept = delete;
+  ~CTR_Mode() noexcept {};
+
+     template <typename AesEngineT> __attribute__((hot, always_inline)) inline static void Encryption(AesEngineT *core, std::string &block, std::vector<byte>& iv, size_t& counter) {
+    if (block.length() != 16) [[unlikely]] {
+      throw std::invalid_argument("Invalid block size for CTR encryption");
+    }
+    std::vector<byte> tmpOut(16);
+    core->_initStateMatrix(block);
+    core->_addRoundKey(0);
+    core->_initMainRounds();
+    core->_finalRound(AesEngineT::Nr);
+    core->_setOutput(tmpOut);
+    block = std::string(tmpOut.begin(), tmpOut.end());
+  }
+
+  template <typename AesEngineT> __attribute__((hot, always_inline)) inline static void Decryption(AesEngineT *core, std::string &block, std::vector<byte>& iv, size_t& counter) {
+    if (block.length() != 16) [[unlikely]] {
+      throw std::invalid_argument("Invalid block size for CTR decryption");
+    }
+    std::vector<byte> tmpOut(16);
+    core->_initStateMatrix(block);
+    core->_addRoundKey(0);
+    core->_initMainRounds();
+    core->_finalRound(AesEngineT::Nr);
+    core->_setOutput(tmpOut);
+    block = std::string(tmpOut.begin(), tmpOut.end());
+  
+};
+};
+
 template <uint16_t BlockSz, AESMode Mode>
-class AES_Encryption<BlockSz, Mode, typename std::enable_if<IsValidBlockSize<BlockSz>::value>::type> : public AesEngine<BlockSz> {
+class AES_Encryption<BlockSz, Mode, typename std::enable_if<IsValidModeOfOperation<Mode>::value>::type, typename std::enable_if<IsValidBlockSize<BlockSz>::value>::type>
+    : public AesEngine<BlockSz> {
 public:
   AES_Encryption() noexcept = default;
   AES_Encryption(const AES_Encryption &) noexcept = delete;
   AES_Encryption(AES_Encryption &&) noexcept = delete;
 
-  __attribute__((cold)) const std::vector<byte> apply(const std::string &input, const std::string &key, std::vector<byte> &iv = {}) {
+  __attribute__((cold)) const std::vector<byte> apply(const std::string &input, const std::string &key, std::vector<byte> &iv = {}, size_t &counter = 0) {
     std::vector<byte> result;
     this->_generateAesConstants();
     this->_validateParameters(input, key);
     this->_bindParameters(this->_addPadding(input), key);
     this->_stateInitialization();
     this->_keySchedule();
-    this->_modeTransformation(result, iv);
+    this->_modeTransformation(result, iv, counter);
     return result;
   };
 
   ~AES_Encryption() noexcept override = default;
 
-  void _modeTransformation(std::vector<byte> &out, std::vector<byte> &iv) {
+  void _modeTransformation(std::vector<byte> &out, std::vector<byte> &iv, size_t &counter) {
     std::vector<byte> tmp(16);
     std::string block;
     block.reserve(16);
@@ -541,6 +584,9 @@ public:
       switch ((int)Mode) {
       case AESMode::CBC:
         CBC_Mode::Encryption(this, block, iv);
+        break;
+      case AESMode::CTR:
+        CTR_Mode::Encryption(this, block, iv, counter);
         break;
       default:
         ECB_Mode::Encryption(this, block);
@@ -576,27 +622,28 @@ public:
   }
 };
 template <uint16_t BlockSz, AESMode Mode>
-class AES_Decryption<BlockSz, Mode, typename std::enable_if<IsValidBlockSize<BlockSz>::value>::type> : public AesEngine<BlockSz> {
+class AES_Decryption<BlockSz, Mode, typename std::enable_if<IsValidModeOfOperation<Mode>::value>::type, typename std::enable_if<IsValidBlockSize<BlockSz>::value>::type>
+    : public AesEngine<BlockSz> {
 public:
   AES_Decryption() noexcept = default;
   AES_Decryption(const AES_Decryption &) noexcept = delete;
   AES_Decryption(AES_Decryption &&) noexcept = delete;
 
-  __attribute__((cold)) const std::vector<byte> apply(const std::string &input, const std::string &key, std::vector<byte> &iv = {}) {
+  __attribute__((cold)) const std::vector<byte> apply(const std::string &input, const std::string &key, std::vector<byte> &iv = {}, size_t &counter = 0) {
     std::vector<byte> result;
     this->_generateAesConstants();
     this->_validateParameters(input, key);
     this->_bindParameters(input, key);
     this->_stateInitialization();
     this->_keySchedule();
-    this->_modeTransformation(result, iv);
+    this->_modeTransformation(result, iv, counter);
     this->_pkcs7Dettach(result);
     return result;
   }
 
   ~AES_Decryption() noexcept override = default;
 
-  void _modeTransformation(std::vector<byte> &out, std::vector<byte> &iv) {
+  void _modeTransformation(std::vector<byte> &out, std::vector<byte> &iv, size_t &counter) {
     std::vector<byte> tmp(16);
     std::string block;
     block.resize(16);
@@ -605,6 +652,9 @@ public:
       switch ((int)Mode) {
       case AESMode::CBC:
         CBC_Mode::Decryption(this, block, iv);
+        break;
+      case AESMode::CTR:
+        CTR_Mode::Decryption(this, block, iv, counter);
         break;
       default:
         ECB_Mode::Decryption(this, block);
@@ -752,8 +802,9 @@ static std::string keyAES128(CSPRNG::genSecKeyBlock(128));
 static std::string keyAES192(CSPRNG::genSecKeyBlock(192));
 static std::string keyAES256(CSPRNG::genSecKeyBlock(256));
 static std::vector<byte> IV(16);
+static size_t COUNTER = 10;
 
-static size_t tscore = 3*2;
+static size_t tscore = 3 * 2;
 static size_t S_THRESHOLD = 0;
 
 static constexpr size_t exec_delay = 10; // delay between each execution(ms)
@@ -775,6 +826,14 @@ AES_Encryption<AES256KS, AESMode::CBC> aesCBC256Encryptor;
 AES_Decryption<AES128KS, AESMode::CBC> aesCBC128Decryptor;
 AES_Decryption<AES192KS, AESMode::CBC> aesCBC192Decryptor;
 AES_Decryption<AES256KS, AESMode::CBC> aesCBC256Decryptor;
+
+AES_Encryption<AES128KS, AESMode::CTR> aesCTR128Encryptor;
+AES_Encryption<AES192KS, AESMode::CTR> aesCTR192Encryptor;
+AES_Encryption<AES256KS, AESMode::CTR> aesCTR256Encryptor;
+
+AES_Decryption<AES128KS, AESMode::CTR> aesCTR128Decryptor;
+AES_Decryption<AES192KS, AESMode::CTR> aesCTR192Decryptor;
+AES_Decryption<AES256KS, AESMode::CTR> aesCTR256Decryptor;
 
 static void printPlaintext() {
   std::cout << "Plaintext(Hex):        ";
@@ -802,39 +861,54 @@ static void runAesTest(const uint16_t ks, const AesCryptoModule::AESMode MODE = 
 
   if (ks == AES128KS) {
     if (MODE == AESMode::ECB) {
-      encryptedData = aesECB128Encryptor.apply(plaintext, keyAES128, IV);
-      decryptedData = aesECB128Decryptor.apply(std::string(encryptedData.begin(), encryptedData.end()), keyAES128, IV);
+      encryptedData = aesECB128Encryptor.apply(plaintext, keyAES128, IV, COUNTER);
+      decryptedData = aesECB128Decryptor.apply(std::string(encryptedData.begin(), encryptedData.end()), keyAES128, IV, COUNTER);
     } else if (MODE == AESMode::CBC) {
       std::vector<byte> iv = IV;
-      encryptedData = aesCBC128Encryptor.apply(plaintext, keyAES128, iv);
+      encryptedData = aesCBC128Encryptor.apply(plaintext, keyAES128, iv, COUNTER);
       iv = IV;
-      decryptedData = aesCBC128Decryptor.apply(std::string(encryptedData.begin(), encryptedData.end()), keyAES128, iv);
+      decryptedData = aesCBC128Decryptor.apply(std::string(encryptedData.begin(), encryptedData.end()), keyAES128, iv, COUNTER);
+    } else if (MODE == AESMode::CTR) {
+      std::vector<byte> iv = IV;
+      encryptedData = aesCTR128Encryptor.apply(plaintext, keyAES128, iv, COUNTER);
+      iv = IV;
+      decryptedData = aesCTR128Decryptor.apply(std::string(encryptedData.begin(), encryptedData.end()), keyAES128, iv, COUNTER);
     }
     printResult(std::string("AES(128) ") += model + " -> Encrypted(Hex): ", encryptedData);
     printResult(std::string("AES(128) ") += model + " -> Decrypted(Hex): ", decryptedData);
     tscore += std::string(decryptedData.begin(), decryptedData.end()) == plaintext ? 1 : 0;
   } else if (ks == AES192KS) {
     if (MODE == AESMode::ECB) {
-      encryptedData = aesECB192Encryptor.apply(plaintext, keyAES192, IV);
-      decryptedData = aesECB192Decryptor.apply(std::string(encryptedData.begin(), encryptedData.end()), keyAES192, IV);
+      encryptedData = aesECB192Encryptor.apply(plaintext, keyAES192, IV, COUNTER);
+      decryptedData = aesECB192Decryptor.apply(std::string(encryptedData.begin(), encryptedData.end()), keyAES192, IV, COUNTER);
     } else if (MODE == AESMode::CBC) {
       std::vector<byte> iv = IV;
-      encryptedData = aesCBC192Encryptor.apply(plaintext, keyAES192, iv);
+      encryptedData = aesCBC192Encryptor.apply(plaintext, keyAES192, iv, COUNTER);
       iv = IV;
-      decryptedData = aesCBC192Decryptor.apply(std::string(encryptedData.begin(), encryptedData.end()), keyAES192, iv);
+      decryptedData = aesCBC192Decryptor.apply(std::string(encryptedData.begin(), encryptedData.end()), keyAES192, iv, COUNTER);
+    } else if (MODE == AESMode::CTR) {
+      std::vector<byte> iv = IV;
+      encryptedData = aesCTR192Encryptor.apply(plaintext, keyAES192, iv, COUNTER);
+      iv = IV;
+      decryptedData = aesCTR192Decryptor.apply(std::string(encryptedData.begin(), encryptedData.end()), keyAES192, iv, COUNTER);
     }
     printResult(std::string("AES(192) ") += model + " -> Encrypted(Hex): ", encryptedData);
     printResult(std::string("AES(192) ") += model + " -> Decrypted(Hex): ", decryptedData);
     tscore += std::string(decryptedData.begin(), decryptedData.end()) == plaintext ? 1 : 0;
   } else {
     if (MODE == AESMode::ECB) {
-      encryptedData = aesECB256Encryptor.apply(plaintext, keyAES256, IV);
-      decryptedData = aesECB256Decryptor.apply(std::string(encryptedData.begin(), encryptedData.end()), keyAES256, IV);
+      encryptedData = aesECB256Encryptor.apply(plaintext, keyAES256, IV, COUNTER);
+      decryptedData = aesECB256Decryptor.apply(std::string(encryptedData.begin(), encryptedData.end()), keyAES256, IV, COUNTER);
     } else if (MODE == AESMode::CBC) {
       std::vector<byte> iv = IV;
-      encryptedData = aesCBC256Encryptor.apply(plaintext, keyAES256, iv);
+      encryptedData = aesCBC256Encryptor.apply(plaintext, keyAES256, iv, COUNTER);
       iv = IV;
-      decryptedData = aesCBC256Decryptor.apply(std::string(encryptedData.begin(), encryptedData.end()), keyAES256, iv);
+      decryptedData = aesCBC256Decryptor.apply(std::string(encryptedData.begin(), encryptedData.end()), keyAES256, iv, COUNTER);
+    } else if (MODE == AESMode::CTR) {
+      std::vector<byte> iv = IV;
+      encryptedData = aesCTR256Encryptor.apply(plaintext, keyAES256, iv, COUNTER);
+      iv = IV;
+      decryptedData = aesCTR256Decryptor.apply(std::string(encryptedData.begin(), encryptedData.end()), keyAES256, iv, COUNTER);
     }
     printResult(std::string("AES(256) ") += model + " -> Encrypted(Hex): ", encryptedData);
     printResult(std::string("AES(256) ") += model + " -> Decrypted(Hex): ", decryptedData);
@@ -892,12 +966,21 @@ static void run_AES_CBC_test() {
   std::thread([&] { execAES256(AESMode::CBC); }).join();
 };
 
+static void run_AES_CTR_test() {
+  std::cout << "\n*********** Execute AES CTR Mode ***********\n";
+  std::thread([&] { execAES128(AESMode::CTR); }).join();
+  std::thread([&] { execAES192(AESMode::CTR); }).join();
+  std::thread([&] { execAES256(AESMode::CTR); }).join();
+}
+
+// run aes in all modes(ECB, CBC, OFB, CTR, CFB, GCM)
 static void runGlobal() {
 
   printPlaintext();
 
-  run_AES_ECB_test();
-  run_AES_CBC_test();
+  // run_AES_ECB_test();
+  // run_AES_CBC_test();
+  run_AES_CTR_test();
 
   std::cout << "Tests Finished... total tests passed = " << std::dec << (int)tscore << "/" << (int)S_THRESHOLD << "\n";
 };
