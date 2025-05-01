@@ -516,7 +516,6 @@ public:
     block = std::string(tmpOut.begin(), tmpOut.end());
   }
 };
-
 class CTR_Mode {
 public:
   CTR_Mode() noexcept {};
@@ -526,37 +525,21 @@ public:
   CTR_Mode &operator=(CTR_Mode &&) noexcept = delete;
   ~CTR_Mode() noexcept {};
 
-     template <typename AesEngineT> __attribute__((hot, always_inline)) inline static void Encryption(AesEngineT *core, std::string &block, std::vector<byte>& iv, size_t& counter) {
-    if (block.length() != 16) [[unlikely]] {
-      throw std::invalid_argument("Invalid block size for CTR encryption");
-    }
-    std::vector<byte> tmpOut(16);
-    core->_initStateMatrix(block);
-    core->_addRoundKey(0);
-    core->_initMainRounds();
-    core->_finalRound(AesEngineT::Nr);
-    core->_setOutput(tmpOut);
-    block = std::string(tmpOut.begin(), tmpOut.end());
+  template <typename AesEngineT>
+  __attribute__((hot, always_inline)) inline static void Encryption(AesEngineT *core, std::string &block, const std::vector<byte> &nonce, size_t &counter) {
+    
   }
 
-  template <typename AesEngineT> __attribute__((hot, always_inline)) inline static void Decryption(AesEngineT *core, std::string &block, std::vector<byte>& iv, size_t& counter) {
-    if (block.length() != 16) [[unlikely]] {
-      throw std::invalid_argument("Invalid block size for CTR decryption");
-    }
-    std::vector<byte> tmpOut(16);
-    core->_initStateMatrix(block);
-    core->_addRoundKey(0);
-    core->_initMainRounds();
-    core->_finalRound(AesEngineT::Nr);
-    core->_setOutput(tmpOut);
-    block = std::string(tmpOut.begin(), tmpOut.end());
-  
-};
+  template <typename AesEngineT>
+  __attribute__((hot, always_inline)) inline static void Decryption(AesEngineT *core, std::string &block, std::vector<byte> &nonce, size_t &counter) {
+    
+  }
 };
 
 template <uint16_t BlockSz, AESMode Mode>
 class AES_Encryption<BlockSz, Mode, typename std::enable_if<IsValidModeOfOperation<Mode>::value>::type, typename std::enable_if<IsValidBlockSize<BlockSz>::value>::type>
     : public AesEngine<BlockSz> {
+      AESMode M = Mode;
 public:
   AES_Encryption() noexcept = default;
   AES_Encryption(const AES_Encryption &) noexcept = delete;
@@ -566,6 +549,11 @@ public:
     std::vector<byte> result;
     this->_generateAesConstants();
     this->_validateParameters(input, key);
+    // if (Mode == AESMode::CTR) {
+    //   this->_bindParameters(input, key);
+    // } else {
+    //   this->_bindParameters(this->_addPadding(input), key);
+    // }
     this->_bindParameters(this->_addPadding(input), key);
     this->_stateInitialization();
     this->_keySchedule();
@@ -581,12 +569,34 @@ public:
     block.reserve(16);
     for (uint8_t i = 0; i < this->parameter.data.size(); i += 16) {
       this->_createBlock(block, i);
-      switch ((int)Mode) {
+      switch ((int)M) {
       case AESMode::CBC:
         CBC_Mode::Encryption(this, block, iv);
         break;
       case AESMode::CTR:
-        CTR_Mode::Encryption(this, block, iv, counter);
+      {
+        // combine nonce+counter
+        std::vector<byte> keystream(iv);
+        keystream[keystream.size()-1] = counter;
+
+        AES_Encryption<128, AESMode::ECB> encryptor;
+
+        // encrypt keystream with ECB mode
+        keystream = encryptor.apply(std::string(keystream.begin(), keystream.end()), std::string(this->parameter.key.begin(), this->parameter.key.end()), iv, counter);
+
+        // xor block of data with keystream
+        for(int f = 0; f < 16; ++f) {
+          block[f] ^= keystream[f];
+        }
+
+        for(int f =0; f < block.size(); ++f) {
+          out.push_back(block[f]);
+        }
+
+        // update counter
+        ++counter;
+        
+      }
         break;
       default:
         ECB_Mode::Encryption(this, block);
@@ -624,6 +634,7 @@ public:
 template <uint16_t BlockSz, AESMode Mode>
 class AES_Decryption<BlockSz, Mode, typename std::enable_if<IsValidModeOfOperation<Mode>::value>::type, typename std::enable_if<IsValidBlockSize<BlockSz>::value>::type>
     : public AesEngine<BlockSz> {
+      AESMode M = Mode;
 public:
   AES_Decryption() noexcept = default;
   AES_Decryption(const AES_Decryption &) noexcept = delete;
@@ -649,12 +660,34 @@ public:
     block.resize(16);
     for (uint8_t i = 0; i < this->parameter.data.size(); i += 16) {
       this->_createBlock(block, i);
-      switch ((int)Mode) {
+      switch ((int)M) {
       case AESMode::CBC:
         CBC_Mode::Decryption(this, block, iv);
         break;
       case AESMode::CTR:
-        CTR_Mode::Decryption(this, block, iv, counter);
+       {
+        // combine nonce+counter
+        std::vector<byte> keystream(iv);
+        keystream[keystream.size()-1] = counter;
+
+        AES_Decryption<128, AESMode::ECB> decryptor;
+
+        // encrypt keystream with ECB mode
+        keystream = decryptor.apply(std::string(keystream.begin(), keystream.end()), std::string(this->parameter.key.begin(), this->parameter.key.end()), iv, counter);
+
+        // xor block of data with keystream
+        for(int f = 0; f < 16; ++f) {
+          block[f] ^= keystream[f];
+        }
+
+        for(int f =0; f < block.size(); ++f) {
+          out.push_back(block[f]);
+        }
+
+        // update counter
+        ++counter;
+        
+      }
         break;
       default:
         ECB_Mode::Decryption(this, block);
@@ -973,6 +1006,49 @@ static void run_AES_CTR_test() {
   std::thread([&] { execAES256(AESMode::CTR); }).join();
 }
 
+void testCTRMode() {
+  using namespace AesCryptoModule;
+
+  // Test data
+  std::string plaintext = "This is a test message for CTR mode!"; // Must be a multiple of 16 bytes for simplicity
+  std::string key = AESUtils::genSecKeyBlock(AES128KS);           // Generate a random 128-bit key
+  std::vector<byte> NONCE(16), nonce(16, 0);                      // Generate a nonce (12 bytes)
+  size_t counter = 0;                                             // Initialize the counter
+
+  // Fill the nonce with random bytes
+  AESUtils::GenerateIvBlock(NONCE);
+  nonce = NONCE;
+
+  // Encrypt
+  AES_Encryption<AES128KS, AESMode::CTR> aesEncryptor;
+  std::vector<byte> encryptedData = aesEncryptor.apply(plaintext, key, nonce, counter);
+
+  // Print encrypted data
+  std::cout << "Encrypted Data (Hex): ";
+  for (const auto &byte : encryptedData) {
+    std::cout << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(byte) << " ";
+  }
+  std::cout << std::endl;
+
+  // Reset counter for decryption
+  counter = 0;
+  nonce = NONCE;
+
+  // Decrypt
+  AES_Decryption<AES128KS, AESMode::CTR> aesDecryptor;
+  std::vector<byte> decryptedData = aesDecryptor.apply(std::string(encryptedData.begin(), encryptedData.end()), key, nonce, counter);
+
+  // Print decrypted data
+  std::cout << "Decrypted Data: " << std::string(decryptedData.begin(), decryptedData.end()) << std::endl;
+
+  // Verify
+  if (std::string(decryptedData.begin(), decryptedData.end()) == plaintext) {
+    std::cout << "Test Passed: Decrypted data matches the original plaintext!" << std::endl;
+  } else {
+    std::cerr << "Test Failed: Decrypted data does not match the original plaintext!" << std::endl;
+  }
+}
+
 // run aes in all modes(ECB, CBC, OFB, CTR, CFB, GCM)
 static void runGlobal() {
 
@@ -980,7 +1056,8 @@ static void runGlobal() {
 
   // run_AES_ECB_test();
   // run_AES_CBC_test();
-  run_AES_CTR_test();
+  // run_AES_CTR_test();
+  testCTRMode();
 
   std::cout << "Tests Finished... total tests passed = " << std::dec << (int)tscore << "/" << (int)S_THRESHOLD << "\n";
 };
