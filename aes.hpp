@@ -516,6 +516,8 @@ public:
     block = std::string(tmpOut.begin(), tmpOut.end());
   }
 };
+
+
 class CTR_Mode {
 public:
   CTR_Mode() noexcept {};
@@ -525,31 +527,38 @@ public:
   CTR_Mode &operator=(CTR_Mode &&) noexcept = delete;
   ~CTR_Mode() noexcept {};
 
-  static std::vector<byte> join(const std::vector<byte> &nonce, uint64_t counter) {
+
+static std::vector<byte> join(const std::vector<byte> &nonce, uint64_t counter) {
+    size_t nonce_size = nonce.size();
+    if (nonce_size > 16) {
+        throw std::invalid_argument("Nonce size exceeds 16 bytes!");
+    }
     std::vector<byte> ksbuffer(16, 0);
     std::copy(nonce.begin(), nonce.end(), ksbuffer.begin());
-    for (size_t i = 0; i < 8; ++i) {
-      ksbuffer[8 + i] = (counter >> (8 * (7 - i))) & 0xFF;
+
+    for (size_t i = 0; i < 8 && (nonce_size + i) < 16; ++i) {
+        ksbuffer[nonce_size + i] = (counter >> (8 * (7 - i))) & 0xFF;
     }
     return ksbuffer;
-  }
+}
 
-  template <typename AesEngineT> __attribute__((hot, always_inline)) inline static void Encryption(AesEngineT *core, std::string &block, std::vector<byte> &keystream) {
+template <typename AesEngineT>
+__attribute__((hot, always_inline)) inline static void Encryption(AesEngineT *core, std::string &block, std::vector<byte> &keystream) {
     size_t blocksize = block.length();
     std::string result;
     for (int i = 0; i < blocksize; i += 16) {
-      size_t offset = blocksize - i >= 16 ? 16 : blocksize - i;
-      std::string dblock;
-      for (int c = 0; c < offset; ++c) {
-        dblock += block[i + c];
-      }
-      for (int c = 0; c < dblock.size(); ++c) {
-        dblock[c] ^= keystream[c];
-      }
-      result += dblock;
+        size_t offset = blocksize - i >= 16 ? 16 : blocksize - i;
+        std::string dblock;
+        for (int c = 0; c < offset; ++c) {
+            dblock += block[i + c];
+        }
+        for (int c = 0; c < dblock.size(); ++c) {
+            dblock[c] ^= keystream[c]; 
+        }
+        result += dblock;
     }
     block = std::move(result);
-  }
+}
 
   template <typename AesEngineT> __attribute__((hot, always_inline)) inline static void Decryption(AesEngineT *core, std::string &block, std::vector<byte> &keystream) {
     Encryption(core, block, keystream);
@@ -606,7 +615,7 @@ class AES_Encryption<BlockSz, Mode, typename std::enable_if<IsValidModeOfOperati
 public:
   std::vector<byte> iv;
   std::vector<byte> authTag;
-  size_t counter = 0;
+  uint64_t counter = 0;
   AES_Encryption() noexcept = default;
   AES_Encryption(const AES_Encryption &) noexcept = delete;
   AES_Encryption(AES_Encryption &&) noexcept = delete;
@@ -701,7 +710,7 @@ public:
   AESMode M = Mode;
   std::vector<byte> iv;
   std::vector<byte> authTag;
-  size_t counter = 0;
+  uint64_t counter = 0;
 
   AES_Decryption() noexcept = default;
   AES_Decryption(const AES_Decryption &) noexcept = delete;
@@ -1086,8 +1095,7 @@ static void runGlobal() {
   run_AES_ECB_test();
   run_AES_CBC_test();
   run_AES_CTR_test();
-
- 
+   
   std::cout << "Tests Finished... total tests passed = " << std::dec << (int)tscore << "/" << (int)S_THRESHOLD << "\n";
 };
 
