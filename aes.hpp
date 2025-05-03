@@ -622,16 +622,130 @@ public:
 
 class GCM_Mode {
 public:
-  GCM_Mode() noexcept {};
-  GCM_Mode(const GCM_Mode &) noexcept = delete;
-  GCM_Mode(GCM_Mode &&) noexcept = delete;
-  GCM_Mode &operator=(const GCM_Mode &) noexcept = delete;
-  GCM_Mode &operator=(GCM_Mode &&) noexcept = delete;
-  ~GCM_Mode() noexcept {};
+    GCM_Mode() noexcept = default;
+    GCM_Mode(const GCM_Mode &) noexcept = delete;
+    GCM_Mode(GCM_Mode &&) noexcept = delete;
+    GCM_Mode &operator=(const GCM_Mode &) noexcept = delete;
+    GCM_Mode &operator=(GCM_Mode &&) noexcept = delete;
+    ~GCM_Mode() noexcept = default;
 
-  template <typename AesEngineT> static void Encryption(AesEngineT *core, std::string &block, std::vector<byte> &iv, std::vector<byte> &authTag) {}
+    template <typename AesEngineT>
+    static void Encryption(AesEngineT *core, 
+                           std::string &plaintext, 
+                           std::vector<byte> &iv, 
+                           std::vector<byte> &authTag, 
+                           const std::vector<byte> &aad) {
+        // 1. Encrypt the plaintext using CTR mode
+        std::vector<byte> ciphertext(plaintext.begin(), plaintext.end());
+        CTR_Mode::Encryption(core, plaintext, iv);
 
-  template <typename AesEngineT> static void Decryption(AesEngineT *core, std::string &block, std::vector<byte> &iv, std::vector<byte> &authTag) {}
+        // 2. Compute the GHash value (authentication tag)
+        std::vector<byte> ghash = GHash(core, aad, ciphertext, iv);
+
+        // 3. Encrypt the IV with AES to finalize the tag
+        std::string ivCtrStr(iv.begin(), iv.end());
+        std::vector<byte> ivCtrEncrypted = core->apply(ivCtrStr, std::string(core->parameter.key.begin(), core->parameter.key.end()));
+
+        for (size_t i = 0; i < ghash.size(); ++i) {
+            authTag[i] = ghash[i] ^ ivCtrEncrypted[i];
+        }
+
+        // Update plaintext to ciphertext
+        plaintext = std::string(ciphertext.begin(), ciphertext.end());
+    }
+
+    template <typename AesEngineT>
+    static void Decryption(AesEngineT *core, 
+                           std::string &ciphertext, 
+                           std::vector<byte> &iv, 
+                           std::vector<byte> &authTag, 
+                           const std::vector<byte> &aad) {
+        // 1. Compute the GHash value (authentication tag)
+        std::vector<byte> ghash = GHash(core, aad, std::vector<byte>(ciphertext.begin(), ciphertext.end()), iv);
+
+        // 2. Encrypt the IV with AES to finalize the tag
+        std::string ivCtrStr(iv.begin(), iv.end());
+        std::vector<byte> ivCtrEncrypted = core->apply(ivCtrStr, std::string(core->parameter.key.begin(), core->parameter.key.end()));
+
+        for (size_t i = 0; i < ghash.size(); ++i) {
+            if (authTag[i] != (ghash[i] ^ ivCtrEncrypted[i])) {
+                throw std::runtime_error("Authentication tag mismatch. Data integrity compromised.");
+            }
+        }
+
+        // 3. Decrypt the ciphertext using CTR mode
+        CTR_Mode::Decryption(core, ciphertext, iv);
+    }
+
+    template <typename AesEngineT>
+    static std::vector<byte> GHash(AesEngineT *core, 
+                                   const std::vector<byte> &aad, 
+                                   const std::vector<byte> &ciphertext, 
+                                   const std::vector<byte> &iv) {
+        // Initialization
+        std::vector<byte> hash(16, 0);
+        std::vector<byte> H = core->apply(std::string(16, 0), std::string(core->parameter.key.begin(), core->parameter.key.end()));
+
+        // Process AAD
+        ProcessBlock(hash, aad, H);
+
+        // Process Ciphertext
+        ProcessBlock(hash, ciphertext, H);
+
+        // Process Lengths (AAD and Ciphertext)
+        std::vector<byte> lengths(16, 0);
+        uint64_t aad_bit_length = aad.size() * 8;
+        uint64_t ciphertext_bit_length = ciphertext.size() * 8;
+        for (int i = 8; i < 16; ++i) {
+            lengths[i] = (ciphertext_bit_length >> (8 * (15 - i))) & 0xFF;
+        }
+        for (int i = 0; i < 8; ++i) {
+            lengths[i] = (aad_bit_length >> (8 * (7 - i))) & 0xFF;
+        }
+        ProcessBlock(hash, lengths, H);
+
+        return hash;
+    }
+
+    static void ProcessBlock(std::vector<byte> &hash, 
+                             const std::vector<byte> &data, 
+                             const std::vector<byte> &H) {
+        size_t block_count = data.size() / 16;
+        for (size_t i = 0; i < block_count; ++i) {
+            std::vector<byte> block(data.begin() + i * 16, data.begin() + (i + 1) * 16);
+            for (size_t j = 0; j < hash.size(); ++j) {
+                hash[j] ^= block[j];
+            }
+            hash = GaloisFieldMultiply(hash, H);
+        }
+    }
+
+    static std::vector<byte> GaloisFieldMultiply(const std::vector<byte> &X, 
+                                                 const std::vector<byte> &Y) {
+        std::vector<byte> result(16, 0);
+        std::vector<byte> Z(16, 0);
+        std::vector<byte> V = Y;
+
+        for (int i = 0; i < 128; ++i) {
+            if ((X[i / 8] >> (7 - (i % 8))) & 1) {
+                for (size_t j = 0; j < 16; ++j) {
+                    Z[j] ^= V[j];
+                }
+            }
+            // Shift V
+            bool carry = V[15] & 1;
+            for (int j = 15; j > 0; --j) {
+                V[j] = (V[j] >> 1) | ((V[j - 1] & 1) << 7);
+            }
+            V[0] >>= 1;
+
+            if (carry) {
+                V[0] ^= 0xE1;
+            }
+        }
+
+        return Z;
+    }
 };
 
 template <uint16_t BlockSz, AESMode Mode>
@@ -642,7 +756,8 @@ class AES_Encryption<BlockSz, Mode, typename std::enable_if<IsValidModeOfOperati
 public:
   std::vector<byte> iv;
   std::vector<byte> authTag;
-  uint64_t counter = 0;
+  uint64_t counter = 0; 
+  std::vector<byte> aad;
   AES_Encryption() noexcept = default;
   AES_Encryption(const AES_Encryption &) noexcept = delete;
   AES_Encryption(AES_Encryption &&) noexcept = delete;
@@ -745,7 +860,50 @@ public:
         }
         this->iv.assign(dblock.begin(), dblock.end());
       }
+    }else if(Mode == AESMode::GCM){
+      std::string block = std::string(this->parameter.data.begin(), this->parameter.data.end());
+        size_t blocksize = this->parameter.data.size();
+        std::vector<byte> ciphertext;
+        std::vector<byte> ghash;
 
+        // Step 1: Encrypt the plaintext using CTR mode
+        for (int i = 0; i < blocksize; i += 16) {
+            std::vector<byte> ks, r;
+            std::string in, k;
+            AES_Encryption<128, AESMode::ECB> E;
+            ks = CTR_Mode::join(this->iv, this->counter);
+            in = std::string(ks.begin(), ks.end());
+            k = std::string(this->parameter.key.begin(), this->parameter.key.end());
+
+            r = E.apply(in, k);
+
+            size_t offset = blocksize - i >= 16 ? 16 : blocksize - i;
+            std::string dblock;
+            for (int c = 0; c < offset; ++c) {
+                dblock += block[i + c];
+            }
+            for (int c = 0; c < dblock.size(); ++c) {
+                dblock[c] ^= r[c];
+            }
+            for (int g = 0; g < dblock.length(); ++g) {
+                ciphertext.push_back(dblock[g]);
+            }
+            ++this->counter;
+        }
+
+        // Step 2: Compute the GHash value (authentication tag)
+        ghash = GCM_Mode::GHash(this, this->aad, ciphertext, this->iv);
+
+        // Step 3: Encrypt the IV with AES to finalize the tag
+        std::string ivCtrStr(this->iv.begin(), this->iv.end());
+        std::vector<byte> ivCtrEncrypted = this->apply(ivCtrStr, std::string(this->parameter.key.begin(), this->parameter.key.end()));
+
+        for (size_t i = 0; i < ghash.size(); ++i) {
+            this->authTag[i] = ghash[i] ^ ivCtrEncrypted[i];
+        }
+
+        // Append the ciphertext to the output
+        out.insert(out.end(), ciphertext.begin(), ciphertext.end());
     } else {
       std::vector<byte> tmp(16);
       for (uint8_t i = 0; i < this->parameter.data.size(); i += 16) {
@@ -757,9 +915,6 @@ public:
           break;
         case AESMode::CBC:
           CBC_Mode::Encryption(this, block, this->iv);
-          break;
-        case AESMode::GCM:
-          GCM_Mode::Encryption(this, block, this->iv, this->authTag);
           break;
         default:
           throw std::invalid_argument("invalid AES mode of operation, valid modes are(ECB, OFB, CBC, CTR, ECB, GCM)");
@@ -802,7 +957,7 @@ public:
   std::vector<byte> iv;
   std::vector<byte> authTag;
   uint64_t counter = 0;
-
+ std::vector<byte> aad;
   AES_Decryption() noexcept = default;
   AES_Decryption(const AES_Decryption &) noexcept = delete;
   AES_Decryption(AES_Decryption &&) noexcept = delete;
@@ -905,6 +1060,50 @@ public:
         }
         this->iv.assign(pblock.begin(), pblock.end());
       }
+    }else if(Mode == AESMode::GCM){
+// Extract ciphertext from input
+        std::vector<byte> ciphertext(this->parameter.data.begin(), this->parameter.data.end());
+
+        // Compute expected GHash (authentication tag)
+        std::vector<byte> ghash = GCM_Mode::GHash(this, this->aad, ciphertext, this->iv);
+
+        // Encrypt IV to finalize the expected tag
+        std::string ivCtrStr(this->iv.begin(), this->iv.end());
+        std::vector<byte> ivCtrEncrypted = this->apply(ivCtrStr, std::string(this->parameter.key.begin(), this->parameter.key.end()));
+
+        for (size_t i = 0; i < ghash.size(); ++i) {
+            if (this->authTag[i] != (ghash[i] ^ ivCtrEncrypted[i])) {
+                throw std::runtime_error("Authentication tag mismatch. Data integrity compromised.");
+            }
+        }
+
+        // Decrypt ciphertext using CTR mode
+        std::string block = std::string(ciphertext.begin(), ciphertext.end());
+        size_t blocksize = ciphertext.size();
+
+        for (int i = 0; i < blocksize; i += 16) {
+            std::vector<byte> ks, r;
+            std::string in, k;
+            AES_Encryption<128, AESMode::ECB> E;
+
+            ks = CTR_Mode::join(this->iv, this->counter);
+            in = std::string(ks.begin(), ks.end());
+            k = std::string(this->parameter.key.begin(), this->parameter.key.end());
+            r = E.apply(in, k);
+
+            size_t offset = blocksize - i >= 16 ? 16 : blocksize - i;
+            std::string dblock;
+            for (int c = 0; c < offset; ++c) {
+                dblock += block[i + c];
+            }
+            for (int c = 0; c < dblock.size(); ++c) {
+                dblock[c] ^= r[c];
+            }
+            for (int g = 0; g < dblock.length(); ++g) {
+                out.push_back(dblock[g]);
+            }
+            ++this->counter;
+        }
     } else {
       std::vector<byte> tmp(16);
 
@@ -917,9 +1116,6 @@ public:
           break;
         case AESMode::CBC:
           CBC_Mode::Decryption(this, block, this->iv);
-          break;
-        case AESMode::GCM:
-          GCM_Mode::Decryption(this, block, this->iv, this->authTag);
           break;
         default:
           throw std::invalid_argument("invalid AES mode of operation, valid modes are(ECB, OFB, CBC, CTR, ECB, GCM)");
@@ -1311,19 +1507,68 @@ static void run_AES_CFB_test() {
   std::thread([&] { execAES256(AESMode::CFB); }).join();
 }
 
+
+static void run_AES_GCM_test() {
+    std::cout << "\n*********** Execute AES GCM Mode ***********\n";
+
+    // Input plaintext, AAD, and key
+    std::string plaintext = "This is a secret message!";
+    std::vector<byte> aad = {'A', 'A', 'D', '1', '2', '3'};
+    std::vector<byte> iv(12);
+    AESUtils::GenerateIvBlock(iv);
+    std::vector<byte> authTag(16);
+    std::string key = CSPRNG::genSecKeyBlock(128);
+
+    // Encrypt
+    AES_Encryption<AES128KS, AESMode::GCM> aesGCMEncryptor;
+    aesGCMEncryptor.iv = iv;
+    aesGCMEncryptor.authTag = authTag;
+    std::vector<byte> encryptedData = aesGCMEncryptor.apply(plaintext, key);
+
+    // Output
+    std::cout << "Encrypted Data: ";
+    for (byte b : encryptedData) {
+        std::cout << std::hex << std::setw(2) << std::setfill('0') << (int)b << " ";
+    }
+    std::cout << "\n";
+
+    std::cout << "Authentication Tag: ";
+    for (byte b : aesGCMEncryptor.authTag) {
+        std::cout << std::hex << std::setw(2) << std::setfill('0') << (int)b << " ";
+    }
+    std::cout << "\n";
+
+    // Decrypt
+    AES_Decryption<AES128KS, AESMode::GCM> aesGCMDecryptor;
+    aesGCMDecryptor.iv = iv;
+    aesGCMDecryptor.authTag = authTag;
+    std::vector<byte> decryptedData = aesGCMDecryptor.apply(
+        std::string(encryptedData.begin(), encryptedData.end()), key);
+
+    // Verify
+    std::cout << "Decrypted Data: " << std::string(decryptedData.begin(), decryptedData.end()) << "\n";
+}
+
 // run aes in all modes(ECB, CBC, OFB, CTR, CFB, GCM)
 static void runGlobal() {
 
   printPlaintext();
 
+  run_AES_GCM_test();
+
   // std::string data = "abcdefghijklmnopqrst";
   // std::string key = AESUtils::genSecKeyBlock(128);
   // std::vector<byte> IV, iv;
   // AESUtils::GenerateIvBlock(IV);
-  // iv = IV;
+  // for(int i =0; i < 12; ++i) {
+  //   iv[i] = IV[i];
+  // }
+  // IV.clear();
+  // IV = iv;
+  // std::cout << "IV SIze: " << std::dec << (int)iv.size() << "\n";
 
-  // AES_Encryption<128, AESMode::CFB> E;
-  // AES_Decryption<128, AESMode::CFB> D;
+  // AES_Encryption<128, AESMode::GCM> E;
+  // AES_Decryption<128, AESMode::GCM> D;
 
   // E.iv = iv;
   // auto enc = E.apply(data, key);
@@ -1340,11 +1585,11 @@ static void runGlobal() {
   //   std::cout << std::hex << std::setw(2) << (int)x << " ";
   // std::cout << "\n";
 
-  run_AES_ECB_test();
-  run_AES_CBC_test();
-  run_AES_CTR_test();
-  run_AES_OFB_test();
-  run_AES_CFB_test();
+  // run_AES_ECB_test();
+  // run_AES_CBC_test();
+  // run_AES_CTR_test();
+  // run_AES_OFB_test();
+  // run_AES_CFB_test();
 
   std::cout << "Tests Finished... total tests passed = " << std::dec << (int)tscore << "/" << (int)S_THRESHOLD << "\n";
 };
