@@ -517,7 +517,6 @@ public:
   }
 };
 
-
 class CTR_Mode {
 public:
   CTR_Mode() noexcept {};
@@ -527,38 +526,36 @@ public:
   CTR_Mode &operator=(CTR_Mode &&) noexcept = delete;
   ~CTR_Mode() noexcept {};
 
-
-static std::vector<byte> join(const std::vector<byte> &nonce, uint64_t counter) {
+  static std::vector<byte> join(const std::vector<byte> &nonce, uint64_t counter) {
     size_t nonce_size = nonce.size();
     if (nonce_size > 16) {
-        throw std::invalid_argument("Nonce size exceeds 16 bytes!");
+      throw std::invalid_argument("Nonce size exceeds 16 bytes!");
     }
     std::vector<byte> ksbuffer(16, 0);
     std::copy(nonce.begin(), nonce.end(), ksbuffer.begin());
 
     for (size_t i = 0; i < 8 && (nonce_size + i) < 16; ++i) {
-        ksbuffer[nonce_size + i] = (counter >> (8 * (7 - i))) & 0xFF;
+      ksbuffer[nonce_size + i] = (counter >> (8 * (7 - i))) & 0xFF;
     }
     return ksbuffer;
-}
+  }
 
-template <typename AesEngineT>
-__attribute__((hot, always_inline)) inline static void Encryption(AesEngineT *core, std::string &block, std::vector<byte> &keystream) {
+  template <typename AesEngineT> __attribute__((hot, always_inline)) inline static void Encryption(AesEngineT *core, std::string &block, std::vector<byte> &keystream) {
     size_t blocksize = block.length();
     std::string result;
     for (int i = 0; i < blocksize; i += 16) {
-        size_t offset = blocksize - i >= 16 ? 16 : blocksize - i;
-        std::string dblock;
-        for (int c = 0; c < offset; ++c) {
-            dblock += block[i + c];
-        }
-        for (int c = 0; c < dblock.size(); ++c) {
-            dblock[c] ^= keystream[c]; 
-        }
-        result += dblock;
+      size_t offset = blocksize - i >= 16 ? 16 : blocksize - i;
+      std::string dblock;
+      for (int c = 0; c < offset; ++c) {
+        dblock += block[i + c];
+      }
+      for (int c = 0; c < dblock.size(); ++c) {
+        dblock[c] ^= keystream[c];
+      }
+      result += dblock;
     }
     block = std::move(result);
-}
+  }
 
   template <typename AesEngineT> __attribute__((hot, always_inline)) inline static void Decryption(AesEngineT *core, std::string &block, std::vector<byte> &keystream) {
     Encryption(core, block, keystream);
@@ -574,9 +571,24 @@ public:
   OFB_Mode &operator=(OFB_Mode &&) noexcept = delete;
   ~OFB_Mode() noexcept {};
 
-  template <typename AesEngineT> static void Encryption(AesEngineT *core, std::string &block, std::vector<byte> &iv) {}
+  template <typename AesEngineT> static void Encryption(AesEngineT *core, std::string &block, std::vector<byte> &keystream) {
+    size_t blocksize = block.length();
+    std::string result;
+    for (int i = 0; i < blocksize; i += 16) {
+      size_t offset = blocksize - i >= 16 ? 16 : blocksize - i;
+      std::string dblock;
+      for (int c = 0; c < offset; ++c) {
+        dblock += block[i + c];
+      }
+      for (int c = 0; c < dblock.size(); ++c) {
+        dblock[c] ^= keystream[c];
+      }
+      result += dblock;
+    }
+    block = std::move(result);
+  }
 
-  template <typename AesEngineT> static void Decryption(AesEngineT *core, std::string &block, std::vector<byte> &iv) {}
+  template <typename AesEngineT> static void Decryption(AesEngineT *core, std::string &block, std::vector<byte> &keystream) { Encryption(core, block, keystream); }
 };
 
 class CFB_Mode {
@@ -624,7 +636,7 @@ public:
     std::vector<byte> result;
     this->_generateAesConstants();
     this->_validateParameters(input, key);
-    this->_bindParameters((Mode == AESMode::CTR ? input : this->_addPadding(input)), key);
+    this->_bindParameters((Mode == AESMode::CTR || Mode == AESMode::OFB ? input : this->_addPadding(input)), key);
     this->_stateInitialization();
     this->_keySchedule();
     this->_modeTransformation(result);
@@ -648,8 +660,24 @@ public:
         out.push_back(block[g]);
       }
       ++this->counter;
+    } else if (Mode == AESMode::OFB) {
+
+      std::vector<byte> ks, r;
+      std::string in, k, block;
+      AES_Encryption<128, AESMode::ECB> E;
+      ks = this->iv;
+      in = std::string(ks.begin(), ks.end());
+      k = std::string(this->parameter.key.begin(), this->parameter.key.end());
+      block = std::string(this->parameter.data.begin(), this->parameter.data.end());
+      r = E.apply(in, k);
+      OFB_Mode::Encryption(this, block, ks);
+      for (int g = 0; g < block.length(); ++g) {
+        out.push_back(block[g]);
+      }
+    } else if (Mode == AESMode::CFB) {
+
     } else {
-      std::vector<byte> tmp(16); 
+      std::vector<byte> tmp(16);
       for (uint8_t i = 0; i < this->parameter.data.size(); i += 16) {
         std::string block(this->parameter.data.begin() + i, this->parameter.data.begin() + i + 16);
         this->_createBlock(block, i);
@@ -660,12 +688,6 @@ public:
         case AESMode::CBC:
           CBC_Mode::Encryption(this, block, this->iv);
           break;
-        case AESMode::OFB:
-          OFB_Mode::Encryption(this, block, this->iv);
-          break;
-        case AESMode::CFB:
-          CFB_Mode::Encryption(this, block, this->iv);
-          break;
         case AESMode::GCM:
           GCM_Mode::Encryption(this, block, this->iv, this->authTag);
           break;
@@ -674,7 +696,6 @@ public:
         }
         this->_blockDigest(tmp, out, block);
       }
-      
     }
   };
 
@@ -745,11 +766,27 @@ public:
         out.push_back(block[g]);
       }
       ++this->counter;
+    } else if (Mode == AESMode::OFB) {
+
+      std::vector<byte> ks, r;
+      std::string in, k, block;
+      AES_Decryption<128, AESMode::ECB> E;
+      ks = this->iv;
+      in = std::string(ks.begin(), ks.end());
+      k = std::string(this->parameter.key.begin(), this->parameter.key.end());
+      block = std::string(this->parameter.data.begin(), this->parameter.data.end());
+      r = E.apply(in, k);
+      OFB_Mode::Decryption(this, block, ks);
+      for (int g = 0; g < block.length(); ++g) {
+        out.push_back(block[g]);
+      }
+    } else if (Mode == AESMode::CFB) {
+
     } else {
       std::vector<byte> tmp(16);
-       
+
       for (uint8_t i = 0; i < this->parameter.data.size(); i += 16) {
-         std::string block(this->parameter.data.begin() + i, this->parameter.data.begin() + i + 16);
+        std::string block(this->parameter.data.begin() + i, this->parameter.data.begin() + i + 16);
         this->_createBlock(block, i);
         switch ((int)M) {
         case AESMode::ECB:
@@ -757,12 +794,6 @@ public:
           break;
         case AESMode::CBC:
           CBC_Mode::Decryption(this, block, this->iv);
-          break;
-        case AESMode::OFB:
-          OFB_Mode::Decryption(this, block, this->iv);
-          break;
-        case AESMode::CFB:
-          CFB_Mode::Decryption(this, block, this->iv);
           break;
         case AESMode::GCM:
           GCM_Mode::Decryption(this, block, this->iv, this->authTag);
@@ -772,7 +803,6 @@ public:
         }
         this->_blockDigest(tmp, out, block);
       }
-      
     }
   };
 
@@ -1086,16 +1116,39 @@ static void run_AES_CTR_test() {
   std::thread([&] { execAES256(AESMode::CTR); }).join();
 }
 
- 
 // run aes in all modes(ECB, CBC, OFB, CTR, CFB, GCM)
 static void runGlobal() {
 
   printPlaintext();
 
-  run_AES_ECB_test();
-  run_AES_CBC_test();
-  run_AES_CTR_test();
-   
+  std::string data = "abcdefghijklmnopqrst";
+  std::string key = AESUtils::genSecKeyBlock(128);
+  std::vector<byte> IV, iv;
+  AESUtils::GenerateIvBlock(IV);
+  iv = IV;
+
+  AES_Encryption<128, AESMode::CFB> E;
+  AES_Decryption<128, AESMode::CFB> D;
+
+  E.iv = iv;
+  auto enc = E.apply(data, key);
+  std::cout << "Encrypted: ";
+  for (auto x : enc)
+    std::cout << std::hex << std::setw(2) << (int)x << " ";
+  std::cout << "\n";
+
+  iv = IV;
+  D.iv = iv;
+  auto dec = D.apply(std::string(enc.begin(), enc.end()), key);
+  std::cout << "Decrypted: ";
+  for (auto x : dec)
+    std::cout << std::hex << std::setw(2) << (int)x << " ";
+  std::cout << "\n";
+
+  // run_AES_ECB_test();
+  // run_AES_CBC_test();
+  // run_AES_CTR_test();
+
   std::cout << "Tests Finished... total tests passed = " << std::dec << (int)tscore << "/" << (int)S_THRESHOLD << "\n";
 };
 
