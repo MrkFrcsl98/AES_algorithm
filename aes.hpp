@@ -662,19 +662,32 @@ public:
 
   void _modeTransformation(std::vector<byte> &out) {
     if (Mode == AESMode::CTR) {
-      std::vector<byte> ks, r;
-      std::string in, k, block;
-      AES_Encryption<128, AESMode::ECB> E;
-      ks = CTR_Mode::join(this->iv, this->counter);
-      in = std::string(ks.begin(), ks.end());
-      k = std::string(this->parameter.key.begin(), this->parameter.key.end());
-      block = std::string(this->parameter.data.begin(), this->parameter.data.end());
-      r = E.apply(in, k);
-      CTR_Mode::Encryption(this, block, ks);
-      for (int g = 0; g < block.length(); ++g) {
-        out.push_back(block[g]);
+      std::string block = std::string(this->parameter.data.begin(), this->parameter.data.end());
+      size_t blocksize = this->parameter.data.size();
+      for (int i = 0; i < blocksize; i += 16) {
+        std::vector<byte> ks, r;
+        std::string in, k;
+        AES_Encryption<128, AESMode::ECB> E;
+        ks = CTR_Mode::join(this->iv, this->counter);
+        in = std::string(ks.begin(), ks.end());
+        k = std::string(this->parameter.key.begin(), this->parameter.key.end());
+
+        r = E.apply(in, k);
+
+        size_t offset = blocksize - i >= 16 ? 16 : blocksize - i;
+        std::string dblock;
+        for (int c = 0; c < offset; ++c) {
+          dblock += block[i + c];
+        }
+        for (int c = 0; c < dblock.size(); ++c) {
+          dblock[c] ^= r[c];
+        }
+        for (int g = 0; g < dblock.length(); ++g) {
+          out.push_back(dblock[g]);
+        }
+        ++this->counter;
       }
-      ++this->counter;
+
     } else if (Mode == AESMode::OFB) {
 
       size_t blocksize = this->parameter.data.size();
@@ -810,19 +823,31 @@ public:
 
   void _modeTransformation(std::vector<byte> &out) {
     if (Mode == AESMode::CTR) {
-      std::vector<byte> ks, r;
-      std::string in, k, block;
-      AES_Decryption<128, AESMode::ECB> E;
+      std::string block = std::string(this->parameter.data.begin(), this->parameter.data.end());
+ size_t blocksize = this->parameter.data.size();
+    for (int i = 0; i < blocksize; i += 16) {
+       std::vector<byte> ks, r;
+      std::string in, k;
+      AES_Encryption<128, AESMode::ECB> E;
       ks = CTR_Mode::join(this->iv, this->counter);
       in = std::string(ks.begin(), ks.end());
       k = std::string(this->parameter.key.begin(), this->parameter.key.end());
-      block = std::string(this->parameter.data.begin(), this->parameter.data.end());
+      
       r = E.apply(in, k);
-      CTR_Mode::Decryption(this, block, ks);
-      for (int g = 0; g < block.length(); ++g) {
-        out.push_back(block[g]);
+      
+      size_t offset = blocksize - i >= 16 ? 16 : blocksize - i;
+      std::string dblock;
+      for (int c = 0; c < offset; ++c) {
+        dblock += block[i + c];
+      }
+      for (int c = 0; c < dblock.size(); ++c) {
+        dblock[c] ^= r[c];
+      }
+     for (int g = 0; g < dblock.length(); ++g) {
+        out.push_back(dblock[g]);
       }
       ++this->counter;
+    }
     } else if (Mode == AESMode::OFB) {
 
       size_t blocksize = this->parameter.data.size();
@@ -1043,7 +1068,7 @@ static std::string keyAES192(CSPRNG::genSecKeyBlock(192));
 static std::string keyAES256(CSPRNG::genSecKeyBlock(256));
 static std::vector<byte> IV(16), authTag(16);
 
-static size_t tscore = 3 * 3;
+static size_t tscore = 3 * 6;
 static size_t S_THRESHOLD = 0;
 
 static constexpr size_t exec_delay = 10; // delay between each execution(ms)
@@ -1073,6 +1098,22 @@ AES_Encryption<AES256KS, AESMode::CTR> aesCTR256Encryptor;
 AES_Decryption<AES128KS, AESMode::CTR> aesCTR128Decryptor;
 AES_Decryption<AES192KS, AESMode::CTR> aesCTR192Decryptor;
 AES_Decryption<AES256KS, AESMode::CTR> aesCTR256Decryptor;
+
+AES_Encryption<AES128KS, AESMode::OFB> aesOFB128Encryptor;
+AES_Encryption<AES192KS, AESMode::OFB> aesOFB192Encryptor;
+AES_Encryption<AES256KS, AESMode::OFB> aesOFB256Encryptor;
+
+AES_Decryption<AES128KS, AESMode::OFB> aesOFB128Decryptor;
+AES_Decryption<AES192KS, AESMode::OFB> aesOFB192Decryptor;
+AES_Decryption<AES256KS, AESMode::OFB> aesOFB256Decryptor;
+
+AES_Encryption<AES128KS, AESMode::CFB> aesCFB128Encryptor;
+AES_Encryption<AES192KS, AESMode::CFB> aesCFB192Encryptor;
+AES_Encryption<AES256KS, AESMode::CFB> aesCFB256Encryptor;
+
+AES_Decryption<AES128KS, AESMode::CFB> aesCFB128Decryptor;
+AES_Decryption<AES192KS, AESMode::CFB> aesCFB192Decryptor;
+AES_Decryption<AES256KS, AESMode::CFB> aesCFB256Decryptor;
 
 static void printPlaintext() {
   std::cout << "Plaintext(Hex):        ";
@@ -1114,6 +1155,20 @@ static void runAesTest(const uint16_t ks, const AesCryptoModule::AESMode MODE = 
       iv = IV;
       aesCTR128Decryptor.iv = iv;
       decryptedData = aesCTR128Decryptor.apply(std::string(encryptedData.begin(), encryptedData.end()), keyAES128);
+    } else if (MODE == AESMode::OFB) {
+      std::vector<byte> iv = IV;
+      aesOFB128Encryptor.iv = iv;
+      encryptedData = aesOFB128Encryptor.apply(plaintext, keyAES128);
+      iv = IV;
+      aesOFB128Decryptor.iv = iv;
+      decryptedData = aesOFB128Decryptor.apply(std::string(encryptedData.begin(), encryptedData.end()), keyAES128);
+    } else if (MODE == AESMode::CFB) {
+      std::vector<byte> iv = IV;
+      aesCFB128Encryptor.iv = iv;
+      encryptedData = aesCFB128Encryptor.apply(plaintext, keyAES128);
+      iv = IV;
+      aesCFB128Decryptor.iv = iv;
+      decryptedData = aesCFB128Decryptor.apply(std::string(encryptedData.begin(), encryptedData.end()), keyAES128);
     }
     printResult(std::string("AES(128) ") += model + " -> Encrypted(Hex): ", encryptedData);
     printResult(std::string("AES(128) ") += model + " -> Decrypted(Hex): ", decryptedData);
@@ -1132,6 +1187,20 @@ static void runAesTest(const uint16_t ks, const AesCryptoModule::AESMode MODE = 
       encryptedData = aesCTR192Encryptor.apply(plaintext, keyAES192);
       aesCTR192Decryptor.iv = IV;
       decryptedData = aesCTR192Decryptor.apply(std::string(encryptedData.begin(), encryptedData.end()), keyAES192);
+    } else if (MODE == AESMode::OFB) {
+      std::vector<byte> iv = IV;
+      aesOFB192Encryptor.iv = iv;
+      encryptedData = aesOFB192Encryptor.apply(plaintext, keyAES192);
+      iv = IV;
+      aesOFB192Decryptor.iv = iv;
+      decryptedData = aesOFB192Decryptor.apply(std::string(encryptedData.begin(), encryptedData.end()), keyAES192);
+    } else if (MODE == AESMode::CFB) {
+      std::vector<byte> iv = IV;
+      aesCFB192Encryptor.iv = iv;
+      encryptedData = aesCFB192Encryptor.apply(plaintext, keyAES192);
+      iv = IV;
+      aesCFB192Decryptor.iv = iv;
+      decryptedData = aesCFB192Decryptor.apply(std::string(encryptedData.begin(), encryptedData.end()), keyAES192);
     }
     printResult(std::string("AES(192) ") += model + " -> Encrypted(Hex): ", encryptedData);
     printResult(std::string("AES(192) ") += model + " -> Decrypted(Hex): ", decryptedData);
@@ -1150,6 +1219,20 @@ static void runAesTest(const uint16_t ks, const AesCryptoModule::AESMode MODE = 
       encryptedData = aesCTR256Encryptor.apply(plaintext, keyAES256);
       aesCTR256Decryptor.iv = IV;
       decryptedData = aesCTR256Decryptor.apply(std::string(encryptedData.begin(), encryptedData.end()), keyAES256);
+    } else if (MODE == AESMode::OFB) {
+      std::vector<byte> iv = IV;
+      aesOFB256Encryptor.iv = iv;
+      encryptedData = aesOFB256Encryptor.apply(plaintext, keyAES256);
+      iv = IV;
+      aesOFB256Decryptor.iv = iv;
+      decryptedData = aesOFB256Decryptor.apply(std::string(encryptedData.begin(), encryptedData.end()), keyAES256);
+    } else if (MODE == AESMode::CFB) {
+      std::vector<byte> iv = IV;
+      aesCFB256Encryptor.iv = iv;
+      encryptedData = aesCFB256Encryptor.apply(plaintext, keyAES256);
+      iv = IV;
+      aesCFB256Decryptor.iv = iv;
+      decryptedData = aesCFB256Decryptor.apply(std::string(encryptedData.begin(), encryptedData.end()), keyAES256);
     }
     printResult(std::string("AES(256) ") += model + " -> Encrypted(Hex): ", encryptedData);
     printResult(std::string("AES(256) ") += model + " -> Decrypted(Hex): ", decryptedData);
@@ -1214,38 +1297,54 @@ static void run_AES_CTR_test() {
   std::thread([&] { execAES256(AESMode::CTR); }).join();
 }
 
+static void run_AES_OFB_test() {
+  std::cout << "\n*********** Execute AES OFB Mode ***********\n";
+  std::thread([&] { execAES128(AESMode::OFB); }).join();
+  std::thread([&] { execAES192(AESMode::OFB); }).join();
+  std::thread([&] { execAES256(AESMode::OFB); }).join();
+}
+
+static void run_AES_CFB_test() {
+  std::cout << "\n*********** Execute AES CFB Mode ***********\n";
+  std::thread([&] { execAES128(AESMode::CFB); }).join();
+  std::thread([&] { execAES192(AESMode::CFB); }).join();
+  std::thread([&] { execAES256(AESMode::CFB); }).join();
+}
+
 // run aes in all modes(ECB, CBC, OFB, CTR, CFB, GCM)
 static void runGlobal() {
 
   printPlaintext();
 
-  std::string data = "abcdefghijklmnopqrst";
-  std::string key = AESUtils::genSecKeyBlock(128);
-  std::vector<byte> IV, iv;
-  AESUtils::GenerateIvBlock(IV);
-  iv = IV;
+  // std::string data = "abcdefghijklmnopqrst";
+  // std::string key = AESUtils::genSecKeyBlock(128);
+  // std::vector<byte> IV, iv;
+  // AESUtils::GenerateIvBlock(IV);
+  // iv = IV;
 
-  AES_Encryption<128, AESMode::CFB> E;
-  AES_Decryption<128, AESMode::CFB> D;
+  // AES_Encryption<128, AESMode::CFB> E;
+  // AES_Decryption<128, AESMode::CFB> D;
 
-  E.iv = iv;
-  auto enc = E.apply(data, key);
-  std::cout << "Encrypted: ";
-  for (auto x : enc)
-    std::cout << std::hex << std::setw(2) << (int)x << " ";
-  std::cout << "\n";
+  // E.iv = iv;
+  // auto enc = E.apply(data, key);
+  // std::cout << "Encrypted: ";
+  // for (auto x : enc)
+  //   std::cout << std::hex << std::setw(2) << (int)x << " ";
+  // std::cout << "\n";
 
-  iv = IV;
-  D.iv = iv;
-  auto dec = D.apply(std::string(enc.begin(), enc.end()), key);
-  std::cout << "Decrypted: ";
-  for (auto x : dec)
-    std::cout << std::hex << std::setw(2) << (int)x << " ";
-  std::cout << "\n";
+  // iv = IV;
+  // D.iv = iv;
+  // auto dec = D.apply(std::string(enc.begin(), enc.end()), key);
+  // std::cout << "Decrypted: ";
+  // for (auto x : dec)
+  //   std::cout << std::hex << std::setw(2) << (int)x << " ";
+  // std::cout << "\n";
 
-  // run_AES_ECB_test();
-  // run_AES_CBC_test();
-  // run_AES_CTR_test();
+  run_AES_ECB_test();
+  run_AES_CBC_test();
+  run_AES_CTR_test();
+  run_AES_OFB_test();
+  run_AES_CFB_test();
 
   std::cout << "Tests Finished... total tests passed = " << std::dec << (int)tscore << "/" << (int)S_THRESHOLD << "\n";
 };
