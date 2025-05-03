@@ -617,7 +617,7 @@ public:
     block = std::move(result);
   }
 
-  template <typename AesEngineT> static void Decryption(AesEngineT *core, std::string &block, std::vector<byte> &keystream) { Decryption(core, block, keystream); }
+  template <typename AesEngineT> static void Decryption(AesEngineT *core, std::string &block, std::vector<byte> &keystream) { Encryption(core, block, keystream); }
 };
 
 class GCM_Mode {
@@ -677,33 +677,62 @@ public:
       ++this->counter;
     } else if (Mode == AESMode::OFB) {
 
-      std::vector<byte> ks, r;
-      std::string in, k, block;
-      AES_Encryption<128, AESMode::ECB> E;
-      ks = this->iv;
-      in = std::string(ks.begin(), ks.end());
-      k = std::string(this->parameter.key.begin(), this->parameter.key.end());
-      block = std::string(this->parameter.data.begin(), this->parameter.data.end());
-      r = E.apply(in, k);
-      OFB_Mode::Encryption(this, block, ks);
-      for (int g = 0; g < block.length(); ++g) {
-        out.push_back(block[g]);
+      size_t blocksize = this->parameter.data.size();
+      std::string result;
+      for (int i = 0; i < blocksize; i += 16) {
+
+        std::vector<byte> ks, r;
+        std::string in, k, block;
+        AES_Encryption<128, AESMode::ECB> E;
+        ks = this->iv;
+        in = std::string(ks.begin(), ks.end());
+        k = std::string(this->parameter.key.begin(), this->parameter.key.end());
+        block = std::string(this->parameter.data.begin(), this->parameter.data.end());
+        r = E.apply(in, k);
+
+        size_t offset = blocksize - i >= 16 ? 16 : blocksize - i;
+        std::string dblock;
+        for (int c = 0; c < offset; ++c) {
+          dblock += block[i + c];
+        }
+        for (int c = 0; c < dblock.size(); ++c) {
+          dblock[c] ^= r[c];
+        }
+        for (int g = 0; g < dblock.length(); ++g) {
+          out.push_back(dblock[g]);
+        }
+        this->iv.assign(r.begin(), r.end());
       }
+
     } else if (Mode == AESMode::CFB) {
 
-      std::vector<byte> ks, r;
-      std::string in, k, block;
-      AES_Encryption<128, AESMode::ECB> E;
-      ks = this->iv;
-      in = std::string(ks.begin(), ks.end());
-      k = std::string(this->parameter.key.begin(), this->parameter.key.end());
-      block = std::string(this->parameter.data.begin(), this->parameter.data.end());
-      r = E.apply(in, k);
-      CFB_Mode::Encryption(this, block, ks);
-      for (int g = 0; g < block.length(); ++g) {
-        out.push_back(block[g]);
+      size_t blocksize = this->parameter.data.size();
+      std::string result;
+      for (int i = 0; i < blocksize; i += 16) {
+
+        std::vector<byte> ks, r;
+        std::string in, k, block;
+        AES_Encryption<128, AESMode::ECB> E;
+        ks = this->iv;
+        in = std::string(ks.begin(), ks.end());
+        k = std::string(this->parameter.key.begin(), this->parameter.key.end());
+        block = std::string(this->parameter.data.begin(), this->parameter.data.end());
+        r = E.apply(in, k);
+
+        size_t offset = blocksize - i >= 16 ? 16 : blocksize - i;
+        std::string dblock;
+        for (int c = 0; c < offset; ++c) {
+          dblock += block[i + c];
+        }
+        for (int c = 0; c < dblock.size(); ++c) {
+          dblock[c] ^= r[c];
+        }
+        for (int g = 0; g < dblock.length(); ++g) {
+          out.push_back(dblock[g]);
+        }
+        this->iv.assign(dblock.begin(), dblock.end());
       }
-      this->iv.assign(block.begin(), block.end());
+
     } else {
       std::vector<byte> tmp(16);
       for (uint8_t i = 0; i < this->parameter.data.size(); i += 16) {
@@ -796,33 +825,61 @@ public:
       ++this->counter;
     } else if (Mode == AESMode::OFB) {
 
-      std::vector<byte> ks, r;
-      std::string in, k, block;
-      AES_Decryption<128, AESMode::ECB> E;
-      ks = this->iv;
-      in = std::string(ks.begin(), ks.end());
-      k = std::string(this->parameter.key.begin(), this->parameter.key.end());
-      block = std::string(this->parameter.data.begin(), this->parameter.data.end());
-      r = E.apply(in, k);
-      OFB_Mode::Decryption(this, block, ks);
-      for (int g = 0; g < block.length(); ++g) {
-        out.push_back(block[g]);
+      size_t blocksize = this->parameter.data.size();
+      std::string result;
+      for (int i = 0; i < blocksize; i += 16) {
+
+        std::vector<byte> ks, r;
+        std::string in, k, block;
+        AES_Encryption<128, AESMode::ECB> E;
+        ks = this->iv;
+        in = std::string(ks.begin(), ks.end());
+        k = std::string(this->parameter.key.begin(), this->parameter.key.end());
+        block = std::string(this->parameter.data.begin(), this->parameter.data.end());
+        r = E.apply(in, k);
+
+        size_t offset = blocksize - i >= 16 ? 16 : blocksize - i;
+        std::string dblock;
+        for (int c = 0; c < offset; ++c) {
+          dblock += block[i + c];
+        }
+        for (int c = 0; c < dblock.size(); ++c) {
+          dblock[c] ^= r[c];
+        }
+        for (int g = 0; g < dblock.length(); ++g) {
+          out.push_back(dblock[g]);
+        }
+        this->iv.assign(r.begin(), r.end());
       }
+
     } else if (Mode == AESMode::CFB) {
-      std::vector<byte> ks, r;
-      std::string in, k, block;
-      AES_Encryption<128, AESMode::ECB> E;
-      ks = this->iv;
-      in = std::string(ks.begin(), ks.end());
-      k = std::string(this->parameter.key.begin(), this->parameter.key.end());
-      block = std::string(this->parameter.data.begin(), this->parameter.data.end());
-      std::string pblock = block;
-      r = E.apply(in, k);
-      CFB_Mode::Decryption(this, block, ks);
-      for (int g = 0; g < block.length(); ++g) {
-        out.push_back(block[g]);
+      size_t blocksize = this->parameter.data.size();
+      std::string result;
+      for (int i = 0; i < blocksize; i += 16) {
+
+        std::vector<byte> ks, r;
+        std::string in, k, block;
+        AES_Encryption<128, AESMode::ECB> E;
+        ks = this->iv;
+        in = std::string(ks.begin(), ks.end());
+        k = std::string(this->parameter.key.begin(), this->parameter.key.end());
+        block = std::string(this->parameter.data.begin(), this->parameter.data.end());
+        std::string pblock = block;
+        r = E.apply(in, k);
+
+        size_t offset = blocksize - i >= 16 ? 16 : blocksize - i;
+        std::string dblock;
+        for (int c = 0; c < offset; ++c) {
+          dblock += block[i + c];
+        }
+        for (int c = 0; c < dblock.size(); ++c) {
+          dblock[c] ^= r[c];
+        }
+        for (int g = 0; g < dblock.length(); ++g) {
+          out.push_back(dblock[g]);
+        }
+        this->iv.assign(pblock.begin(), pblock.end());
       }
-      this->iv.assign(pblock.begin(), pblock.end());
     } else {
       std::vector<byte> tmp(16);
 
