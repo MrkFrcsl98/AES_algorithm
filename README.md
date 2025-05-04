@@ -194,6 +194,160 @@ simultaneously instead of sequentially.
 | GCM  | YES            | YES            | YES          | YES | YES     | Stream-like         |
 
 
+Pseudo code for AES ECB Encryption/Decryption:
+```
+BEGIN
+    DEFINE BLOCK_SIZE = 16
+    FUNCTION AES_ECB_ENCRYPT(plaintext, key)
+        SPLIT plaintext INTO blocks OF BLOCK_SIZE
+        FOR EACH block IN blocks
+            encrypted_block = AES_ENCRYPT(block, key)
+            APPEND encrypted_block TO ciphertext
+        RETURN ciphertext
+
+    FUNCTION AES_ECB_DECRYPT(ciphertext, key)
+        SPLIT ciphertext INTO blocks OF BLOCK_SIZE
+        FOR EACH block IN blocks
+            decrypted_block = AES_DECRYPT(block, key)
+            APPEND decrypted_block TO plaintext
+        RETURN plaintext
+END
+```
+
+Pseudo code for AES CBC Encryption/Decryption
+```
+BEGIN
+    DEFINE BLOCK_SIZE = 16
+    FUNCTION AES_CBC_ENCRYPT(plaintext, key, iv)
+        SPLIT plaintext INTO blocks OF BLOCK_SIZE
+        SET previous_block = iv
+        FOR EACH block IN blocks
+            xor_block = XOR(block, previous_block)
+            encrypted_block = AES_ENCRYPT(xor_block, key)
+            APPEND encrypted_block TO ciphertext
+            SET previous_block = encrypted_block
+        RETURN ciphertext
+
+    FUNCTION AES_CBC_DECRYPT(ciphertext, key, iv)
+        SPLIT ciphertext INTO blocks OF BLOCK_SIZE
+        SET previous_block = iv
+        FOR EACH block IN blocks
+            decrypted_block = AES_DECRYPT(block, key)
+            xor_block = XOR(decrypted_block, previous_block)
+            APPEND xor_block TO plaintext
+            SET previous_block = block
+        RETURN plaintext
+END
+```
+
+Pseudo code for AES OFB Encryption/Decryption
+```
+BEGIN
+    DEFINE BLOCK_SIZE = 16
+    FUNCTION AES_OFB_ENCRYPT(plaintext, key, iv)
+        SPLIT plaintext INTO blocks OF BLOCK_SIZE
+        SET feedback = iv
+        FOR EACH block IN blocks
+            feedback = AES_ENCRYPT(feedback, key)
+            xor_block = XOR(block, feedback)
+            APPEND xor_block TO ciphertext
+        RETURN ciphertext
+
+    FUNCTION AES_OFB_DECRYPT(ciphertext, key, iv)
+        SPLIT ciphertext INTO blocks OF BLOCK_SIZE
+        SET feedback = iv
+        FOR EACH block IN blocks
+            feedback = AES_ENCRYPT(feedback, key)
+            xor_block = XOR(block, feedback)
+            APPEND xor_block TO plaintext
+        RETURN plaintext
+END
+```
+
+Pseudo code for AES CFB Encryption/Decryption
+```
+BEGIN
+    DEFINE BLOCK_SIZE = 16
+    FUNCTION AES_CFB_ENCRYPT(plaintext, key, iv)
+        SPLIT plaintext INTO blocks OF BLOCK_SIZE
+        SET feedback = iv
+        FOR EACH block IN blocks
+            feedback = AES_ENCRYPT(feedback, key)
+            xor_block = XOR(block, feedback)
+            APPEND xor_block TO ciphertext
+            SET feedback = xor_block
+        RETURN ciphertext
+
+    FUNCTION AES_CFB_DECRYPT(ciphertext, key, iv)
+        SPLIT ciphertext INTO blocks OF BLOCK_SIZE
+        SET feedback = iv
+        FOR EACH block IN blocks
+            feedback = AES_ENCRYPT(feedback, key)
+            xor_block = XOR(block, feedback)
+            APPEND xor_block TO plaintext
+            SET feedback = block
+        RETURN plaintext
+END
+```
+
+
+Pseudo code for AES CTR Encryption/Decryption
+```
+BEGIN
+    DEFINE BLOCK_SIZE = 16
+    FUNCTION AES_CTR_ENCRYPT(plaintext, key, nonce)
+        SPLIT plaintext INTO blocks OF BLOCK_SIZE
+        SET counter = 0
+        FOR EACH block IN blocks
+            counter_block = CONCAT(nonce, counter)
+            keystream = AES_ENCRYPT(counter_block, key)
+            xor_block = XOR(block, keystream)
+            APPEND xor_block TO ciphertext
+            INCREMENT counter
+        RETURN ciphertext
+
+    FUNCTION AES_CTR_DECRYPT(ciphertext, key, nonce)
+        SPLIT ciphertext INTO blocks OF BLOCK_SIZE
+        SET counter = 0
+        FOR EACH block IN blocks
+            counter_block = CONCAT(nonce, counter)
+            keystream = AES_ENCRYPT(counter_block, key)
+            xor_block = XOR(block, keystream)
+            APPEND xor_block TO plaintext
+            INCREMENT counter
+        RETURN plaintext
+END
+```
+
+Pseudo code for AES GCM Encryption/Decryption
+```
+BEGIN
+    DEFINE BLOCK_SIZE = 16
+    FUNCTION AES_GCM_ENCRYPT(plaintext, key, iv, additional_data)
+        SET gcm_context = INITIALIZE_GCM_CONTEXT(key, iv)
+        IF additional_data EXISTS
+            UPDATE_AUTHENTICATION_TAG(gcm_context, additional_data)
+        SPLIT plaintext INTO blocks OF BLOCK_SIZE
+        FOR EACH block IN blocks
+            encrypted_block = GCM_ENCRYPT_BLOCK(gcm_context, block)
+            APPEND encrypted_block TO ciphertext
+        FINALIZE_GCM_CONTEXT(gcm_context)
+        RETURN (ciphertext, AUTHENTICATION_TAG(gcm_context))
+
+    FUNCTION AES_GCM_DECRYPT(ciphertext, key, iv, additional_data, auth_tag)
+        SET gcm_context = INITIALIZE_GCM_CONTEXT(key, iv)
+        IF additional_data EXISTS
+            UPDATE_AUTHENTICATION_TAG(gcm_context, additional_data)
+        SPLIT ciphertext INTO blocks OF BLOCK_SIZE
+        FOR EACH block IN blocks
+            decrypted_block = GCM_DECRYPT_BLOCK(gcm_context, block)
+            APPEND decrypted_block TO plaintext
+        FINALIZE_GCM_CONTEXT(gcm_context)
+        IF AUTHENTICATION_TAG(gcm_context) ≠ auth_tag
+            RAISE AUTHENTICATION_ERROR
+        RETURN plaintext
+END
+```
 
 
 ## How It Works
