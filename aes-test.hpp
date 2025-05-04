@@ -5,7 +5,7 @@
 
 namespace AESTest
 {
-using namespace AesCryptoModule;
+
 
 class CSPRNG;
 
@@ -53,10 +53,6 @@ class CSPRNG
 
     static const std::string genSecKeyBlock(const uint16_t key_size)
     {
-        // a readable format ...
-        const char alpha[26 * 2 + 22] = {'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y',
-                                         'z', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X',
-                                         'Y', 'Z', '.', ',', '!', '@', '#', '$', '%', '^', '&', '*', '+', '-', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9'};
         if (key_size != AES128KS && key_size != AES256KS && key_size != AES192KS)
             return "";
         std::string seckey;
@@ -64,7 +60,7 @@ class CSPRNG
         uint16_t c = 0;
         while (c < key_size / 8)
         {
-            seckey[c++] = alpha[CSPRNG::generate(0, 26 * 2 + 21)];
+            seckey[c++] = CSPRNG::generate(0, 255);
         }
         return seckey;
     };
@@ -83,7 +79,6 @@ class CSPRNG
 
     static void _read_urandom() __attribute__((hot, stack_protect))
     {
-        // hope you got this location on your device, otherwise you are SCREWED...
         std::ifstream FILE("/dev/urandom", std::ios::binary);
         if (!FILE.is_open())
         {
@@ -141,55 +136,57 @@ static size_t S_THRESHOLD = 0;
 static constexpr size_t exec_delay = 10; // delay between each execution(ms)
 
 // AES ECB Mode, multiple key size constructors
-AES_Encryption<AES128KS, AESMode::ECB> aesECB128Encryptor;
-AES_Encryption<AES192KS, AESMode::ECB> aesECB192Encryptor;
-AES_Encryption<AES256KS, AESMode::ECB> aesECB256Encryptor;
+AesCryptoModule::AES_Encryption<AES128KS, AesCryptoModule::AESMode::ECB> aesECB128Encryptor;
+AesCryptoModule::AES_Encryption<AES192KS, AesCryptoModule::AESMode::ECB> aesECB192Encryptor;
+AesCryptoModule::AES_Encryption<AES256KS, AesCryptoModule::AESMode::ECB> aesECB256Encryptor;
 
-AES_Decryption<AES128KS, AESMode::ECB> aesECB128Decryptor;
-AES_Decryption<AES192KS, AESMode::ECB> aesECB192Decryptor;
-AES_Decryption<AES256KS, AESMode::ECB> aesECB256Decryptor;
+AesCryptoModule::AES_Decryption<AES128KS, AesCryptoModule::AESMode::ECB> aesECB128Decryptor;
+AesCryptoModule::AES_Decryption<AES192KS, AesCryptoModule::AESMode::ECB> aesECB192Decryptor;
+AesCryptoModule::AES_Decryption<AES256KS, AesCryptoModule::AESMode::ECB> aesECB256Decryptor;
 
 // AES ECB Mode, multiple key size constructors
-AES_Encryption<AES128KS, AESMode::CBC> aesCBC128Encryptor;
-AES_Encryption<AES192KS, AESMode::CBC> aesCBC192Encryptor;
-AES_Encryption<AES256KS, AESMode::CBC> aesCBC256Encryptor;
+AesCryptoModule::AES_Encryption<AES128KS, AesCryptoModule::AESMode::CBC> aesCBC128Encryptor;
+AesCryptoModule::AES_Encryption<AES192KS, AesCryptoModule::AESMode::CBC> aesCBC192Encryptor;
+AesCryptoModule::AES_Encryption<AES256KS, AesCryptoModule::AESMode::CBC> aesCBC256Encryptor;
 
-AES_Decryption<AES128KS, AESMode::CBC> aesCBC128Decryptor;
-AES_Decryption<AES192KS, AESMode::CBC> aesCBC192Decryptor;
-AES_Decryption<AES256KS, AESMode::CBC> aesCBC256Decryptor;
+AesCryptoModule::AES_Decryption<AES128KS, AesCryptoModule::AESMode::CBC> aesCBC128Decryptor;
+AesCryptoModule::AES_Decryption<AES192KS, AesCryptoModule::AESMode::CBC> aesCBC192Decryptor;
+AesCryptoModule::AES_Decryption<AES256KS, AesCryptoModule::AESMode::CBC> aesCBC256Decryptor;
 
-AES_Encryption<AES128KS, AESMode::CTR> aesCTR128Encryptor;
-AES_Encryption<AES192KS, AESMode::CTR> aesCTR192Encryptor;
-AES_Encryption<AES256KS, AESMode::CTR> aesCTR256Encryptor;
+AesCryptoModule::AES_Encryption<AES128KS, AesCryptoModule::AESMode::CTR> aesCTR128Encryptor;
+AesCryptoModule::AES_Encryption<AES192KS, AesCryptoModule::AESMode::CTR> aesCTR192Encryptor;
+AesCryptoModule::AES_Encryption<AES256KS, AesCryptoModule::AESMode::CTR> aesCTR256Encryptor;
 
-AES_Decryption<AES128KS, AESMode::CTR> aesCTR128Decryptor;
-AES_Decryption<AES192KS, AESMode::CTR> aesCTR192Decryptor;
-AES_Decryption<AES256KS, AESMode::CTR> aesCTR256Decryptor;
+AesCryptoModule::AES_Decryption<AES128KS, AesCryptoModule::AESMode::CTR> aesCTR128Decryptor;
+AesCryptoModule::AES_Decryption<AES192KS, AesCryptoModule::AESMode::CTR> aesCTR192Decryptor;
+AesCryptoModule::AES_Decryption<AES256KS, AesCryptoModule::AESMode::CTR> aesCTR256Decryptor;
 
-AES_Encryption<AES128KS, AESMode::OFB> aesOFB128Encryptor;
-AES_Encryption<AES192KS, AESMode::OFB> aesOFB192Encryptor;
-AES_Encryption<AES256KS, AESMode::OFB> aesOFB256Encryptor;
+AesCryptoModule::AES_Encryption<AES128KS, AesCryptoModule::AESMode::OFB> aesOFB128Encryptor;
+AesCryptoModule::AES_Encryption<AES192KS, AesCryptoModule::AESMode::OFB> aesOFB192Encryptor;
+AesCryptoModule::AES_Encryption<AES256KS, AesCryptoModule::AESMode::OFB> aesOFB256Encryptor;
 
-AES_Decryption<AES128KS, AESMode::OFB> aesOFB128Decryptor;
-AES_Decryption<AES192KS, AESMode::OFB> aesOFB192Decryptor;
-AES_Decryption<AES256KS, AESMode::OFB> aesOFB256Decryptor;
+AesCryptoModule::AES_Decryption<AES128KS, AesCryptoModule::AESMode::OFB> aesOFB128Decryptor;
+AesCryptoModule::AES_Decryption<AES192KS, AesCryptoModule::AESMode::OFB> aesOFB192Decryptor;
+AesCryptoModule::AES_Decryption<AES256KS, AesCryptoModule::AESMode::OFB> aesOFB256Decryptor;
 
-AES_Encryption<AES128KS, AESMode::CFB> aesCFB128Encryptor;
-AES_Encryption<AES192KS, AESMode::CFB> aesCFB192Encryptor;
-AES_Encryption<AES256KS, AESMode::CFB> aesCFB256Encryptor;
+AesCryptoModule::AES_Encryption<AES128KS, AesCryptoModule::AESMode::CFB> aesCFB128Encryptor;
+AesCryptoModule::AES_Encryption<AES192KS, AesCryptoModule::AESMode::CFB> aesCFB192Encryptor;
+AesCryptoModule::AES_Encryption<AES256KS, AesCryptoModule::AESMode::CFB> aesCFB256Encryptor;
 
-AES_Decryption<AES128KS, AESMode::CFB> aesCFB128Decryptor;
-AES_Decryption<AES192KS, AESMode::CFB> aesCFB192Decryptor;
-AES_Decryption<AES256KS, AESMode::CFB> aesCFB256Decryptor;
+AesCryptoModule::AES_Decryption<AES128KS, AesCryptoModule::AESMode::CFB> aesCFB128Decryptor;
+AesCryptoModule::AES_Decryption<AES192KS, AesCryptoModule::AESMode::CFB> aesCFB192Decryptor;
+AesCryptoModule::AES_Decryption<AES256KS, AesCryptoModule::AESMode::CFB> aesCFB256Decryptor;
 
 static void printPlaintext()
 {
+    std::cout << "Plaintext(Ascii):      " << cPlaintext << "\n";
     std::cout << "Plaintext(Hex):        ";
-    for (byte b : plaintext)
+    for (byte b : cPlaintext)
     {
         std::cout << std::hex << std::setw(2) << std::setfill('0') << (int)b << " ";
     }
     std::cout << "\n" << std::endl;
+    std::this_thread::sleep_for(std::chrono::seconds(1));
 };
 
 static void printResult(const std::string_view l, const std::vector<byte> &data)
@@ -203,29 +200,29 @@ static void printResult(const std::string_view l, const std::vector<byte> &data)
     std::this_thread::sleep_for(std::chrono::milliseconds(exec_delay));
 };
 
-static void runAesTest(const uint16_t ks, const AesCryptoModule::AESMode MODE = AESMode::ECB)
+static void runAesTest(const uint16_t ks, const AesCryptoModule::AESMode MODE = AesCryptoModule::AESMode::ECB)
 {
-
+using namespace AesCryptoModule;
     std::vector<byte> encryptedData, decryptedData;
     const std::string model(
-        MODE == AESMode::ECB ? "ECB"
-                             : (MODE == AESMode::CBC ? "CBC" : (MODE == AESMode::CFB ? "CFB" : (MODE == AESMode::CTR ? "CTR" : (MODE == AESMode::OFB ? "OFB" : "GCM")))));
+        MODE == AesCryptoModule::AESMode::ECB ? "ECB"
+                             : (MODE == AesCryptoModule::AESMode::CBC ? "CBC" : (MODE == AesCryptoModule::AESMode::CFB ? "CFB" : (MODE == AesCryptoModule::AESMode::CTR ? "CTR" : (MODE == AesCryptoModule::AESMode::OFB ? "OFB" : "GCM")))));
 
     if (ks == AES128KS)
     {
-        if (MODE == AESMode::ECB)
+        if (MODE == AesCryptoModule::AESMode::ECB)
         {
             encryptedData = aesECB128Encryptor.apply(plaintext, keyAES128);
             decryptedData = aesECB128Decryptor.apply(std::string(encryptedData.begin(), encryptedData.end()), keyAES128);
         }
-        else if (MODE == AESMode::CBC)
+        else if (MODE == AesCryptoModule::AESMode::CBC)
         {
             aesCBC128Encryptor.iv = IV;
             encryptedData = aesCBC128Encryptor.apply(plaintext, keyAES128);
             aesCBC128Decryptor.iv = IV;
             decryptedData = aesCBC128Decryptor.apply(std::string(encryptedData.begin(), encryptedData.end()), keyAES128);
         }
-        else if (MODE == AESMode::CTR)
+        else if (MODE == AesCryptoModule::AESMode::CTR)
         {
             std::vector<byte> iv = IV;
             aesCTR128Encryptor.iv = iv;
@@ -234,7 +231,7 @@ static void runAesTest(const uint16_t ks, const AesCryptoModule::AESMode MODE = 
             aesCTR128Decryptor.iv = iv;
             decryptedData = aesCTR128Decryptor.apply(std::string(encryptedData.begin(), encryptedData.end()), keyAES128);
         }
-        else if (MODE == AESMode::OFB)
+        else if (MODE == AesCryptoModule::AESMode::OFB)
         {
             std::vector<byte> iv = IV;
             aesOFB128Encryptor.iv = iv;
@@ -243,7 +240,7 @@ static void runAesTest(const uint16_t ks, const AesCryptoModule::AESMode MODE = 
             aesOFB128Decryptor.iv = iv;
             decryptedData = aesOFB128Decryptor.apply(std::string(encryptedData.begin(), encryptedData.end()), keyAES128);
         }
-        else if (MODE == AESMode::CFB)
+        else if (MODE == AesCryptoModule::AESMode::CFB)
         {
             std::vector<byte> iv = IV;
             aesCFB128Encryptor.iv = iv;
@@ -263,26 +260,26 @@ static void runAesTest(const uint16_t ks, const AesCryptoModule::AESMode MODE = 
     }
     else if (ks == AES192KS)
     {
-        if (MODE == AESMode::ECB)
+        if (MODE == AesCryptoModule::AESMode::ECB)
         {
             encryptedData = aesECB192Encryptor.apply(plaintext, keyAES192);
             decryptedData = aesECB192Decryptor.apply(std::string(encryptedData.begin(), encryptedData.end()), keyAES192);
         }
-        else if (MODE == AESMode::CBC)
+        else if (MODE == AesCryptoModule::AESMode::CBC)
         {
             aesCBC192Encryptor.iv = IV;
             encryptedData = aesCBC192Encryptor.apply(plaintext, keyAES192);
             aesCBC192Decryptor.iv = IV;
             decryptedData = aesCBC192Decryptor.apply(std::string(encryptedData.begin(), encryptedData.end()), keyAES192);
         }
-        else if (MODE == AESMode::CTR)
+        else if (MODE == AesCryptoModule::AESMode::CTR)
         {
             aesCTR192Encryptor.iv = IV;
             encryptedData = aesCTR192Encryptor.apply(plaintext, keyAES192);
             aesCTR192Decryptor.iv = IV;
             decryptedData = aesCTR192Decryptor.apply(std::string(encryptedData.begin(), encryptedData.end()), keyAES192);
         }
-        else if (MODE == AESMode::OFB)
+        else if (MODE == AesCryptoModule::AESMode::OFB)
         {
             std::vector<byte> iv = IV;
             aesOFB192Encryptor.iv = iv;
@@ -291,7 +288,7 @@ static void runAesTest(const uint16_t ks, const AesCryptoModule::AESMode MODE = 
             aesOFB192Decryptor.iv = iv;
             decryptedData = aesOFB192Decryptor.apply(std::string(encryptedData.begin(), encryptedData.end()), keyAES192);
         }
-        else if (MODE == AESMode::CFB)
+        else if (MODE == AesCryptoModule::AESMode::CFB)
         {
             std::vector<byte> iv = IV;
             aesCFB192Encryptor.iv = iv;
@@ -311,26 +308,26 @@ static void runAesTest(const uint16_t ks, const AesCryptoModule::AESMode MODE = 
     }
     else
     {
-        if (MODE == AESMode::ECB)
+        if (MODE == AesCryptoModule::AESMode::ECB)
         {
             encryptedData = aesECB256Encryptor.apply(plaintext, keyAES256);
             decryptedData = aesECB256Decryptor.apply(std::string(encryptedData.begin(), encryptedData.end()), keyAES256);
         }
-        else if (MODE == AESMode::CBC)
+        else if (MODE == AesCryptoModule::AESMode::CBC)
         {
             aesCBC256Encryptor.iv = IV;
             encryptedData = aesCBC256Encryptor.apply(plaintext, keyAES256);
             aesCBC256Decryptor.iv = IV;
             decryptedData = aesCBC256Decryptor.apply(std::string(encryptedData.begin(), encryptedData.end()), keyAES256);
         }
-        else if (MODE == AESMode::CTR)
+        else if (MODE == AesCryptoModule::AESMode::CTR)
         {
             aesCTR256Encryptor.iv = IV;
             encryptedData = aesCTR256Encryptor.apply(plaintext, keyAES256);
             aesCTR256Decryptor.iv = IV;
             decryptedData = aesCTR256Decryptor.apply(std::string(encryptedData.begin(), encryptedData.end()), keyAES256);
         }
-        else if (MODE == AESMode::OFB)
+        else if (MODE == AesCryptoModule::AESMode::OFB)
         {
             std::vector<byte> iv = IV;
             aesOFB256Encryptor.iv = iv;
@@ -339,7 +336,7 @@ static void runAesTest(const uint16_t ks, const AesCryptoModule::AESMode MODE = 
             aesOFB256Decryptor.iv = iv;
             decryptedData = aesOFB256Decryptor.apply(std::string(encryptedData.begin(), encryptedData.end()), keyAES256);
         }
-        else if (MODE == AESMode::CFB)
+        else if (MODE == AesCryptoModule::AESMode::CFB)
         {
             std::vector<byte> iv = IV;
             aesCFB256Encryptor.iv = iv;
@@ -362,40 +359,43 @@ static void runAesTest(const uint16_t ks, const AesCryptoModule::AESMode MODE = 
 static const uint16_t threshold = cPlaintext.length();
 static uint16_t c = 0;
 
-static void execAES128(const AESMode M)
+static void execAES128(const AesCryptoModule::AESMode M)
 {
+    using namespace AesCryptoModule;
     c = 0;
     while (++c < threshold)
     {
         plaintext = std::string(cPlaintext.begin(), cPlaintext.begin() + c);
         keyAES128 = CSPRNG::genSecKeyBlock(128);
-        AESUtils::GenerateIvBlock(IV);
+        IV = AESUtils::GenIvBlock(IV_BLOCK_SIZE);
         runAesTest(128, M);
     }
     S_THRESHOLD += c;
 };
 
-static void execAES192(const AESMode M)
+static void execAES192(const AesCryptoModule::AESMode M)
 {
+    using namespace AesCryptoModule;
     c = 0;
     while (++c < threshold)
     {
         plaintext = std::string(cPlaintext.begin(), cPlaintext.begin() + c);
         keyAES192 = CSPRNG::genSecKeyBlock(192);
-        AESUtils::GenerateIvBlock(IV);
+        IV = AESUtils::GenIvBlock(IV_BLOCK_SIZE);
         runAesTest(192, M);
     }
     S_THRESHOLD += c;
 };
 
-static void execAES256(const AESMode M)
+static void execAES256(const AesCryptoModule::AESMode M)
 {
+    using namespace AesCryptoModule;
     c = 0;
     while (++c < threshold)
     {
         plaintext = std::string(cPlaintext.begin(), cPlaintext.begin() + c);
         keyAES256 = CSPRNG::genSecKeyBlock(256);
-        AESUtils::GenerateIvBlock(IV);
+        IV = AESUtils::GenIvBlock(IV_BLOCK_SIZE);
         runAesTest(256, M);
     }
     S_THRESHOLD += c;
@@ -403,42 +403,43 @@ static void execAES256(const AESMode M)
 
 static void run_AES_ECB_test()
 {
+    using namespace AesCryptoModule;
     std::cout << "\n*********** Execute AES ECB Mode ***********\n";
-    std::thread([&] { execAES128(AESMode::ECB); }).join();
-    std::thread([&] { execAES192(AESMode::ECB); }).join();
-    std::thread([&] { execAES256(AESMode::ECB); }).join();
+    std::thread([&] { execAES128(AesCryptoModule::AESMode::ECB); }).join();
+    std::thread([&] { execAES192(AesCryptoModule::AESMode::ECB); }).join();
+    std::thread([&] { execAES256(AesCryptoModule::AESMode::ECB); }).join();
 };
 
 static void run_AES_CBC_test()
-{
+{using namespace AesCryptoModule;
     std::cout << "\n*********** Execute AES CBC Mode ***********\n";
-    std::thread([&] { execAES128(AESMode::CBC); }).join();
-    std::thread([&] { execAES192(AESMode::CBC); }).join();
-    std::thread([&] { execAES256(AESMode::CBC); }).join();
+    std::thread([&] { execAES128(AesCryptoModule::AESMode::CBC); }).join();
+    std::thread([&] { execAES192(AesCryptoModule::AESMode::CBC); }).join();
+    std::thread([&] { execAES256(AesCryptoModule::AESMode::CBC); }).join();
 };
 
 static void run_AES_CTR_test()
-{
+{using namespace AesCryptoModule;
     std::cout << "\n*********** Execute AES CTR Mode ***********\n";
-    std::thread([&] { execAES128(AESMode::CTR); }).join();
-    std::thread([&] { execAES192(AESMode::CTR); }).join();
-    std::thread([&] { execAES256(AESMode::CTR); }).join();
+    std::thread([&] { execAES128(AesCryptoModule::AESMode::CTR); }).join();
+    std::thread([&] { execAES192(AesCryptoModule::AESMode::CTR); }).join();
+    std::thread([&] { execAES256(AesCryptoModule::AESMode::CTR); }).join();
 }
 
 static void run_AES_OFB_test()
-{
+{using namespace AesCryptoModule;
     std::cout << "\n*********** Execute AES OFB Mode ***********\n";
-    std::thread([&] { execAES128(AESMode::OFB); }).join();
-    std::thread([&] { execAES192(AESMode::OFB); }).join();
-    std::thread([&] { execAES256(AESMode::OFB); }).join();
+    std::thread([&] { execAES128(AesCryptoModule::AESMode::OFB); }).join();
+    std::thread([&] { execAES192(AesCryptoModule::AESMode::OFB); }).join();
+    std::thread([&] { execAES256(AesCryptoModule::AESMode::OFB); }).join();
 }
 
 static void run_AES_CFB_test()
-{
+{using namespace AesCryptoModule;
     std::cout << "\n*********** Execute AES CFB Mode ***********\n";
-    std::thread([&] { execAES128(AESMode::CFB); }).join();
-    std::thread([&] { execAES192(AESMode::CFB); }).join();
-    std::thread([&] { execAES256(AESMode::CFB); }).join();
+    std::thread([&] { execAES128(AesCryptoModule::AESMode::CFB); }).join();
+    std::thread([&] { execAES192(AesCryptoModule::AESMode::CFB); }).join();
+    std::thread([&] { execAES256(AesCryptoModule::AESMode::CFB); }).join();
 }
 
 // run aes in all modes(ECB, CBC, OFB, CTR, CFB)
