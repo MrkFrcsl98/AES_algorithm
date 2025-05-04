@@ -78,6 +78,7 @@ Various operations are used to perform AES(Rijndael) encryption and decryption, 
 One important aspect of these flow of operations, is that the above operations are performed during all rounds except the last round, where the mixColumn and InvMixColumn operations are omitted.
 
 ### KeyExpansion
+AES starts with the KeyExpansion operation, which generates all required round keys.
 The keyExpansion process uses a keyscheduling mechanism to generate round keys aka subkeys using the original key, the number of total subkeys depends on the number of rounds which also depends on the key size(128, 192, 256) -> (10+1, 12+1, 14+1).
 Each subkey is 128 bits long, and must be unique for each round.
 But wait... why is there 10+1(for 128 bits) instead of 10 subkeys?
@@ -117,7 +118,82 @@ and performs several operations like key rotation, several transformations and x
     }
 ```
 
-## Features
+### Padding
+As i said, AES works on fixed block size which is 128bits(16 bytes), the data must be multiple of the block size in order for AES to work correctly, 
+what happens if the data is not a multiple of the block size? well... you need to implement a padding scheme, a common scheme is PKCS#7, which is a standard developed by the RSA laboratories.
+PKCS#7 calculates the total number of bytes to append to the last 16byte block in order to make it a multiple of 16(block size).
+The process is very simple, if the last block is 14 bytes long and the required block size is 16 bytes, the total number of bytes to append is 2 in order to
+make it a multiple of 16, so PKCS#7 will append 2 bytes all with the value of `2`, if the block size was 12, then would append 4 bytes all with value of `4`.
+For example:
+
+`Data = abcdefghijklmn` 14 bytes
+
+in binary this is: `01100001 01100010 01100011 01100100 01100101 01100110 01100111 01101000 01101001 01101010 01101011 01101100 01101101 01101110`
+
+as you can see, we need 2 more bytes to append to the block of data in order to make it a multiple of 16, specifically, we need to append 2 bytes with value of `00000010`, after padding the result block will be:
+
+final block: `01100001 01100010 01100011 01100100 01100101 01100110 01100111 01101000 01101001 01101010 01101011 01101100 01101101 01101110 00000010 00000010`
+
+Now AES can operate on that block of data as it successfully become a multiple of 16.
+After decryption, the padding is removed by taking the last byte of the block, and popping from the back of the block until the last byte is not the original last byte anymore.
+
+Block Padding 
+
+```cpp
+__attribute__((cold, nothrow)) inline std::string _pkcs7Attach(const std::string &input, size_t blockSize) noexcept
+    {
+        uint8_t paddingSize = blockSize - (input.size() % blockSize);
+        std::string padded(input);
+        padded.reserve(input.size() + paddingSize);
+        while (padded.size() < input.size() + paddingSize)
+        {
+            padded.push_back(static_cast<int>(paddingSize));
+        }
+        return padded;
+    }
+```
+
+Block Unpadding
+```cpp
+__attribute__((cold, nothrow)) inline void _pkcs7Dettach(std::vector<uint8_t> &data) noexcept
+    {
+        if (data.empty()) [[unlikely]]
+        {
+            return;
+        }
+        const uint8_t paddingSize = data.back();
+        if (paddingSize > 128 / 8) [[unlikely]]
+        {
+            return;
+        }
+        data.erase(data.end() - paddingSize, data.end());
+    }
+```
+
+### Mode Of Operation
+AES splits data into 16 byte blocks, each block is then processes by any mode of operation, by default AES employs `ECB`(Electronic-CodeBook) Mode, which 
+is the most simple but also weak mode of operation.
+The mode of operation specifies how blocks of data are processed, depending on the mode of operation, blocks can be processed in a stream-like manner or fixed-block sizes.
+In **ECB** block cipher mode of operation, each block of plaintext is encrypted independently, if a block of plaintext is similar to other blocks, ECB mode
+will produce the same ciphertext block, this will lead to pattern recognition or replay attacks due to lack of `diffusion` in the cipher mode.
+Depending on the underlying mode of operation, padding will be required or not required, in the case of `ECB`, padding is required.
+In ECB padding is required because each block is treated as a fixed 16 bytes block of data, unlike other modes like `CTR`(Counter) mode, which transforms a block cipher into a stream cipher and generates a keystream by encrypting a counter(nonce+counter) value with the key, after generating the keystream, it processes data in 16 byte blocks by xoring the keystream bits with the 16 bytes block, the difference is that the keystream is 16bytes long, and CTR mode operates on blocks of 16 bytes as well, but the way the plaintext/ciphertext block is xored with the keystream allows for arbitrary block sizes.
+There are different modes of operation available for AES, some are: **ECB**, **CBC**, **CTR**, **OFB**, **CFB**, **GCM**.
+Different modes have different properties(encryption/decryption **Parallelizable**, random read access), parallelizable refers to the ability to process data
+simultaneously instead of sequentially.
+
+| Mode | Parallelizable | Parallelizable | Random-Read  | IV  | Counter | Style of Processing |
+|------|----------------|----------------|--------------|-----|---------|---------------------|
+|      | Encryption     | Decryption     | Access       |     |         |                     |
+|      |                |                |              |     |         |                     |
+| ECB  | YES            | YES            | YES          | NO  | NO      | Fixed-block-size    |
+| CBC  | NO             | YES            | YES          | YES | NO      | Fixed-block-size    |
+| OFB  | NO             | NO             | NO           | YES | NO      | Stream-like         |
+| CFB  | NO             | YES            | YES          | YES | NO      | Stream-like         |
+| CTR  | YES            | YES            | YES          | YES | YES     | Stream-like         |
+| GCM  | YES            | YES            | YES          | YES | YES     | Stream-like         |
+
+
 
 
 ## How It Works
