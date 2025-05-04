@@ -194,9 +194,7 @@ class AESUtils
 
     __attribute__((cold)) static const std::string genSecKeyBlock(const uint16_t key_size)
     {
-        const char alpha[26 * 2 + 12] = {'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v',
-                                         'w', 'x', 'y', 'z', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R',
-                                         'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z', '.', ',', '!', '@', '#', '$', '%', '^', '&', '*', '+', '-'};
+
         if (key_size != AES128KS && key_size != AES256KS && key_size != AES192KS)
             return "";
         std::string seckey;
@@ -205,20 +203,21 @@ class AESUtils
         PRNG generator;
         while (c < key_size / 8)
         {
-            seckey[c++] = alpha[generator.MersenneTwister(0, 26 * 2 + 11)];
+            seckey[c++] = generator.MersenneTwister(0, 255);
         }
         return seckey;
     };
 
-    static void GenerateIvBlock(std::vector<byte> &iv)
+    static const std::vector<byte> GenIvBlock(const uint16_t size)
     {
-        iv.resize(16); // Block size for AES is 16 bytes
+        std::vector<byte> iv(size, 0);
         PRNG generator;
         for (auto &b : iv)
         {
             b = generator.MersenneTwister(0, 255);
         }
-    }
+        return iv;
+    };
 
     static std::array<byte, 256> SBox;
     static std::array<byte, 256> InvSBox;
@@ -271,16 +270,16 @@ using StateMatrixT = RoundKeysT;
 
 template <uint16_t BlockSz> class AesEngine<BlockSz, typename std::enable_if<IsValidBlockSize<BlockSz>::value>::type>
 {
-  public:
-    static constexpr byte Nk = BlockSz / 32;
-    static constexpr byte Nr = BlockSz == AES128KS ? AES128_ROUNDS : (BlockSz == AES192KS ? AES192_ROUNDS : AES256_ROUNDS);
+  protected:
     size_t iSz;
     size_t kSz;
-    struct AesParameters parameter;
     RoundKeysT round_keys;
     StateMatrixT state_matrix;
 
   public:
+    static constexpr byte Nk = BlockSz / 32;
+    static constexpr byte Nr = BlockSz == AES128KS ? AES128_ROUNDS : (BlockSz == AES192KS ? AES192_ROUNDS : AES256_ROUNDS);
+    struct AesParameters parameter;
     AesEngine() noexcept = default;
     AesEngine(const AesEngine &) noexcept = delete;
     AesEngine(AesEngine &&) noexcept = delete;
@@ -290,7 +289,6 @@ template <uint16_t BlockSz> class AesEngine<BlockSz, typename std::enable_if<IsV
         _eraseData();
     }
 
-    // protected:
     __attribute__((cold)) void _validateParameters(const std::string &input, const std::string &key)
     {
         this->iSz = input.size();
@@ -533,11 +531,6 @@ template <uint16_t BlockSz> class AesEngine<BlockSz, typename std::enable_if<IsV
         this->iSz = paddedInput.size();
         return paddedInput;
     }
-
-    __attribute__((hot, always_inline, nothrow)) inline void _createBlock(std::string &out, const uint16_t offset)
-    {
-        out = std::string(this->parameter.data.begin() + offset, this->parameter.data.begin() + offset + AES_BLOCK_SIZE);
-    };
 };
 template <AESMode Mode> struct AESModeHandler;
 template <> struct AESModeHandler<AESMode::ECB>
@@ -591,7 +584,7 @@ class ECB_Mode
         for (uint8_t i = 0; i < core->parameter.data.size(); i += AES_BLOCK_SIZE)
         {
             std::string block(core->parameter.data.begin() + i, core->parameter.data.begin() + i + AES_BLOCK_SIZE);
-            core->_createBlock(block, i);
+
             if (!isValidBlock(block)) [[unlikely]]
             {
                 throw std::invalid_argument("Invalid block size for ECB encryption");
@@ -602,7 +595,6 @@ class ECB_Mode
             core->_initMainRounds();
             core->_finalRound(AesEngineT::Nr);
             core->_setOutput(tmpOut);
-            block.assign(tmpOut.begin(), tmpOut.end());
             out.insert(out.end(), tmpOut.begin(), tmpOut.end());
         }
     }
@@ -612,7 +604,6 @@ class ECB_Mode
         for (uint8_t i = 0; i < core->parameter.data.size(); i += AES_BLOCK_SIZE)
         {
             std::string block(core->parameter.data.begin() + i, core->parameter.data.begin() + i + AES_BLOCK_SIZE);
-            core->_createBlock(block, i);
             if (!isValidBlock(block)) [[unlikely]]
             {
                 throw std::invalid_argument("Invalid block size for ECB decryption");
@@ -623,7 +614,6 @@ class ECB_Mode
             core->_initMainRounds();
             core->_finalRound(0);
             core->_setOutput(tmpOut);
-            block.assign(tmpOut.begin(), tmpOut.end());
             out.insert(out.end(), tmpOut.begin(), tmpOut.end());
         }
     }
@@ -644,7 +634,6 @@ class CBC_Mode
         for (uint8_t i = 0; i < core->parameter.data.size(); i += AES_BLOCK_SIZE)
         {
             std::string block(core->parameter.data.begin() + i, core->parameter.data.begin() + i + AES_BLOCK_SIZE);
-            core->_createBlock(block, i);
             if (block.size() != AES_BLOCK_SIZE) [[unlikely]]
             {
                 throw std::invalid_argument("Invalid block size for CBC encryption");
@@ -659,7 +648,6 @@ class CBC_Mode
             core->_initMainRounds();
             core->_finalRound(AesEngineT::Nr);
             core->_setOutput(tmpOut);
-            block.assign(tmpOut.begin(), tmpOut.end());
             out.insert(out.end(), tmpOut.begin(), tmpOut.end());
             core->iv = std::move(tmpOut);
         }
@@ -670,7 +658,6 @@ class CBC_Mode
         for (uint8_t i = 0; i < core->parameter.data.size(); i += AES_BLOCK_SIZE)
         {
             std::string block(core->parameter.data.begin() + i, core->parameter.data.begin() + i + AES_BLOCK_SIZE);
-            core->_createBlock(block, i);
             if (block.size() != AES_BLOCK_SIZE) [[unlikely]]
             {
                 throw std::invalid_argument("Invalid block size for CBC decryption");
@@ -687,7 +674,6 @@ class CBC_Mode
                 tmpOut[i] ^= core->iv[i];
             }
             core->iv.assign(block.begin(), block.end());
-            block.assign(tmpOut.begin(), tmpOut.end());
             out.insert(out.end(), tmpOut.begin(), tmpOut.end());
         }
     }
@@ -705,7 +691,7 @@ class CTR_Mode
 
     static std::vector<byte> join(const std::vector<byte> &nonce, uint64_t counter)
     {
-        size_t nonce_size = nonce.size();
+        const size_t nonce_size = nonce.size();
         if (nonce_size > AES_BLOCK_SIZE)
             throw std::invalid_argument("Nonce size exceeds 16 bytes!");
         std::vector<byte> ksbuffer(AES_BLOCK_SIZE, 0);
@@ -750,7 +736,7 @@ class OFB_Mode
         for (size_t i{0}; i < blocksize; i += AES_BLOCK_SIZE)
         {
             std::vector<byte> keystream(ModeCipherSpecs::generateKeystream(core, core->iv));
-            std::vector<byte> block(core->parameter.data.begin() + i, core->parameter.data.begin() + std::min(i +AES_BLOCK_SIZE, blocksize));
+            std::vector<byte> block(core->parameter.data.begin() + i, core->parameter.data.begin() + std::min(i + AES_BLOCK_SIZE, blocksize));
             ModeCipherSpecs::xorBlock(block, keystream);
             out.insert(out.end(), block.begin(), block.end());
             core->iv = keystream;
@@ -821,8 +807,8 @@ class AES_Encryption<BlockSz, Mode, typename std::enable_if<IsValidModeOfOperati
     __attribute__((cold)) const std::vector<byte> apply(const std::string &input, const std::string &key)
     {
         std::vector<byte> result;
-        this->_generateAesConstants();
         this->_validateParameters(input, key);
+        this->_generateAesConstants();
         this->_bindParameters((Mode == AESMode::CTR || Mode == AESMode::OFB || Mode == AESMode::CFB || Mode == AESMode::GCM ? input : this->_addPadding(input)), key);
         this->_stateInitialization();
         this->_keySchedule();
@@ -835,29 +821,17 @@ class AES_Encryption<BlockSz, Mode, typename std::enable_if<IsValidModeOfOperati
     void _transformation(std::vector<byte> &out)
     {
         if (Mode == AESMode::CTR)
-        {
             ModeOfOperation::CTR_Mode::Encryption(this, out);
-        }
         else if (Mode == AESMode::OFB)
-        {
             ModeOfOperation::OFB_Mode::Encryption(this, out);
-        }
         else if (Mode == AESMode::CFB)
-        {
             ModeOfOperation::CFB_Mode::Encryption(this, out);
-        }
         else if (Mode == AESMode::CBC)
-        {
             ModeOfOperation::CBC_Mode::Encryption(this, out);
-        }
         else if (Mode == AESMode::ECB)
-        {
             ModeOfOperation::ECB_Mode::Encryption(this, out);
-        }
         else
-        {
             throw std::invalid_argument("invalid AES mode of operation, valid modes are(ECB, OFB, CBC, CTR, ECB)");
-        }
     };
 
     void _generateAesConstants() noexcept override
@@ -894,9 +868,9 @@ template <uint16_t BlockSz, AESMode Mode>
 class AES_Decryption<BlockSz, Mode, typename std::enable_if<IsValidModeOfOperation<Mode>::value>::type, typename std::enable_if<IsValidBlockSize<BlockSz>::value>::type>
     : public AesEngine<BlockSz>
 {
+    AESMode M = Mode;
 
   public:
-    AESMode M = Mode;
     std::vector<byte> iv;
     std::vector<byte> authTag;
     uint64_t counter = 0;
@@ -908,8 +882,8 @@ class AES_Decryption<BlockSz, Mode, typename std::enable_if<IsValidModeOfOperati
     __attribute__((cold)) const std::vector<byte> apply(const std::string &input, const std::string &key)
     {
         std::vector<byte> result;
-        this->_generateAesConstants();
         this->_validateParameters(input, key);
+        this->_generateAesConstants();
         this->_bindParameters(input, key);
         this->_stateInitialization();
         this->_keySchedule();
@@ -923,29 +897,17 @@ class AES_Decryption<BlockSz, Mode, typename std::enable_if<IsValidModeOfOperati
     void _transformation(std::vector<byte> &out)
     {
         if (Mode == AESMode::CTR)
-        {
             ModeOfOperation::CTR_Mode::Decryption(this, out);
-        }
         else if (Mode == AESMode::OFB)
-        {
             ModeOfOperation::OFB_Mode::Decryption(this, out);
-        }
         else if (Mode == AESMode::CFB)
-        {
             ModeOfOperation::CFB_Mode::Decryption(this, out);
-        }
         else if (Mode == AESMode::CBC)
-        {
             ModeOfOperation::CBC_Mode::Decryption(this, out);
-        }
         else if (Mode == AESMode::ECB)
-        {
             ModeOfOperation::ECB_Mode::Decryption(this, out);
-        }
         else
-        {
             throw std::invalid_argument("invalid AES mode of operation, valid modes are(ECB, OFB, CBC, CTR, ECB)");
-        }
     };
 
     void _generateAesConstants() noexcept override
@@ -981,7 +943,6 @@ class AES_Decryption<BlockSz, Mode, typename std::enable_if<IsValidModeOfOperati
         }
     }
 };
-
 
 }; // namespace AesCryptoModule
 
