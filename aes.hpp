@@ -517,7 +517,18 @@ public:
     block = std::string(tmpOut.begin(), tmpOut.end());
   }
 };
+template <AESMode Mode>
+struct AESModeHandler;
 
+// Specialization for AESMode::ECB
+template <>
+struct AESModeHandler<AESMode::ECB> {
+    template <uint16_t BlockSz>
+    static std::vector<byte> apply(const std::string &in, const std::string &key) {
+        AES_Encryption<BlockSz, AESMode::ECB> engine;
+        return engine.apply(in, key);
+    }
+};
 class CTR_Mode {
 public:
   CTR_Mode() noexcept {};
@@ -541,13 +552,39 @@ public:
     return ksbuffer;
   }
 
-  template <typename AesEngineT > __attribute__((hot, always_inline)) inline static void Encryption(AesEngineT *core, AesParameters& ctx, std::vector<byte>& out) {
- 
-  }
+template <typename AesEngineT>
+__attribute__((hot, always_inline)) inline static void Encryption(AesEngineT *core, AesParameters &ctx, std::vector<byte> &out) {
+    std::string block = std::string(ctx.data.begin(), ctx.data.end());
+    size_t blocksize = ctx.data.size();
+    for (int i = 0; i < blocksize; i += 16) {
+        std::vector<byte> ks, r;
+        std::string in, k;
+        ks = CTR_Mode::join(core->iv, core->counter);
+        in = std::string(ks.begin(), ks.end());
+        k = std::string(ctx.key.begin(), ctx.key.end());
 
-  template <typename AesEngineT > __attribute__((hot, always_inline)) inline static void Decryption(AesEngineT *core,   AesParameters& ctx, std::vector<byte>& out) {
- 
-  }
+        r = AESModeHandler<AESMode::ECB>::apply<128>(in, k);
+
+        size_t offset = blocksize - i >= 16 ? 16 : blocksize - i;
+        std::string dblock;
+        for (int c = 0; c < offset; ++c) {
+            dblock += block[i + c];
+        }
+        for (int c = 0; c < dblock.size(); ++c) {
+            dblock[c] ^= r[c];
+        }
+        for (int g = 0; g < dblock.length(); ++g) {
+            out.push_back(dblock[g]);
+        }
+        ++core->counter;
+    }
+}
+
+  template <typename AesEngineT>
+__attribute__((hot, always_inline)) inline static void Decryption(AesEngineT *core, AesParameters &ctx, std::vector<byte> &out) {
+    // Decryption in CTR mode is identical to encryption
+    Encryption(core, ctx, out);
+}
 };
 
 class OFB_Mode {
@@ -559,12 +596,41 @@ public:
   OFB_Mode &operator=(OFB_Mode &&) noexcept = delete;
   ~OFB_Mode() noexcept {};
 
-  template <typename AesEngineT> static void Encryption(AesEngineT *core, std::string &block, std::vector<byte> &keystream) {
- 
-  }
+template <typename AesEngineT>
+__attribute__((hot, always_inline)) inline static void Encryption(AesEngineT *core, AesParameters &ctx, std::vector<byte> &out) {
+    size_t blocksize = ctx.data.size();
+    std::string block = std::string(ctx.data.begin(), ctx.data.end());
+    for (int i = 0; i < blocksize; i += 16) {
+        std::vector<byte> ks, r;
+        std::string in, k;
 
-  template <typename AesEngineT> static void Decryption(AesEngineT *core, std::string &block, std::vector<byte> &keystream) {   }
-};
+         ks = core->iv; // Use the IV to generate the keystream
+        in = std::string(ks.begin(), ks.end());
+        k = std::string(ctx.key.begin(), ctx.key.end());
+
+         r = AESModeHandler<AESMode::ECB>::apply<128>(in, k);
+
+        size_t offset = blocksize - i >= 16 ? 16 : blocksize - i;
+        std::string dblock;
+        for (int c = 0; c < offset; ++c) {
+            dblock += block[i + c];
+        }
+        for (int c = 0; c < dblock.size(); ++c) {
+            dblock[c] ^= r[c]; // XOR with the keystream
+        }
+        for (int g = 0; g < dblock.length(); ++g) {
+            out.push_back(dblock[g]);
+        }
+
+        // Update IV for the next block
+        core->iv.assign(r.begin(), r.end());
+    }
+}
+
+template <typename AesEngineT>
+__attribute__((hot, always_inline)) inline static void Decryption(AesEngineT *core, AesParameters &ctx, std::vector<byte> &out) {
+    Encryption(core, ctx, out); // Reuse Encryption logic
+}};
 
 class CFB_Mode {
 public:
@@ -575,12 +641,68 @@ public:
   CFB_Mode &operator=(CFB_Mode &&) noexcept = delete;
   ~CFB_Mode() noexcept {};
 
-  template <typename AesEngineT> static void Encryption(AesEngineT *core, std::string &block, std::vector<byte> &keystream) {
- 
-  }
+template <typename AesEngineT>
+__attribute__((hot, always_inline)) inline static void Encryption(AesEngineT *core, AesParameters &ctx, std::vector<byte> &out) {
+    size_t blocksize = ctx.data.size();
+    std::string block = std::string(ctx.data.begin(), ctx.data.end());
+    for (int i = 0; i < blocksize; i += 16) {
+        std::vector<byte> ks, r;
+        std::string in, k;
 
-  template <typename AesEngineT> static void Decryption(AesEngineT *core, std::string &block, std::vector<byte> &keystream) {   }
-};
+         ks = core->iv; // Use the IV
+        in = std::string(ks.begin(), ks.end());
+        k = std::string(ctx.key.begin(), ctx.key.end());
+
+         r = AESModeHandler<AESMode::ECB>::apply<128>(in, k);
+
+        size_t offset = blocksize - i >= 16 ? 16 : blocksize - i;
+        std::string dblock;
+        for (int c = 0; c < offset; ++c) {
+            dblock += block[i + c];
+        }
+        for (int c = 0; c < dblock.size(); ++c) {
+            dblock[c] ^= r[c]; // XOR with the encrypted block
+        }
+        for (int g = 0; g < dblock.length(); ++g) {
+            out.push_back(dblock[g]);
+        }
+
+        // Update IV with the ciphertext for the next block
+        core->iv.assign(dblock.begin(), dblock.end());
+    }
+}
+
+template <typename AesEngineT>
+__attribute__((hot, always_inline)) inline static void Decryption(AesEngineT *core, AesParameters &ctx, std::vector<byte> &out) {
+    size_t blocksize = ctx.data.size();
+    std::string block = std::string(ctx.data.begin(), ctx.data.end());
+    std::vector<byte> prevCiphertext = core->iv; // Start with the IV
+    for (int i = 0; i < blocksize; i += 16) {
+        std::vector<byte> ks, r;
+        std::string in, k;
+
+         in = std::string(prevCiphertext.begin(), prevCiphertext.end());
+        k = std::string(ctx.key.begin(), ctx.key.end());
+
+         r = AESModeHandler<AESMode::ECB>::apply<128>(in, k);
+
+        size_t offset = blocksize - i >= 16 ? 16 : blocksize - i;
+        std::string dblock, cblock;
+        for (int c = 0; c < offset; ++c) {
+            dblock += block[i + c];
+        }
+        cblock = dblock; // Save the ciphertext for the next block
+        for (int c = 0; c < dblock.size(); ++c) {
+            dblock[c] ^= r[c]; // XOR with the encrypted block
+        }
+        for (int g = 0; g < dblock.length(); ++g) {
+            out.push_back(dblock[g]);
+        }
+
+        // Update the previous ciphertext for the next block
+        prevCiphertext.assign(cblock.begin(), cblock.end());
+    }
+}};
 
  
 template <uint16_t BlockSz, AESMode Mode>
@@ -612,89 +734,11 @@ public:
 
   void _modeTransformation(std::vector<byte> &out) {
     if (Mode == AESMode::CTR) {
-      std::string block = std::string(this->parameter.data.begin(), this->parameter.data.end());
-      size_t blocksize = this->parameter.data.size();
-      for (int i = 0; i < blocksize; i += 16) {
-        std::vector<byte> ks, r;
-        std::string in, k;
-        AES_Encryption<128, AESMode::ECB> E;
-        ks = CTR_Mode::join(this->iv, this->counter);
-        in = std::string(ks.begin(), ks.end());
-        k = std::string(this->parameter.key.begin(), this->parameter.key.end());
-
-        r = E.apply(in, k);
-
-        size_t offset = blocksize - i >= 16 ? 16 : blocksize - i;
-        std::string dblock;
-        for (int c = 0; c < offset; ++c) {
-          dblock += block[i + c];
-        }
-        for (int c = 0; c < dblock.size(); ++c) {
-          dblock[c] ^= r[c];
-        }
-        for (int g = 0; g < dblock.length(); ++g) {
-          out.push_back(dblock[g]);
-        }
-        ++this->counter;
-      }
-       
+     CTR_Mode::Encryption(this, this->parameter, out);
     } else if (Mode == AESMode::OFB) {
-
-      size_t blocksize = this->parameter.data.size();
-      std::string result;
-      for (int i = 0; i < blocksize; i += 16) {
-
-        std::vector<byte> ks, r;
-        std::string in, k, block;
-        AES_Encryption<128, AESMode::ECB> E;
-        ks = this->iv;
-        in = std::string(ks.begin(), ks.end());
-        k = std::string(this->parameter.key.begin(), this->parameter.key.end());
-        block = std::string(this->parameter.data.begin(), this->parameter.data.end());
-        r = E.apply(in, k);
-
-        size_t offset = blocksize - i >= 16 ? 16 : blocksize - i;
-        std::string dblock;
-        for (int c = 0; c < offset; ++c) {
-          dblock += block[i + c];
-        }
-        for (int c = 0; c < dblock.size(); ++c) {
-          dblock[c] ^= r[c];
-        }
-        for (int g = 0; g < dblock.length(); ++g) {
-          out.push_back(dblock[g]);
-        }
-        this->iv.assign(r.begin(), r.end());
-      }
-
+      OFB_Mode::Encryption(this, this->parameter, out);
     } else if (Mode == AESMode::CFB) {
-
-      size_t blocksize = this->parameter.data.size();
-      std::string result;
-      for (int i = 0; i < blocksize; i += 16) {
-
-        std::vector<byte> ks, r;
-        std::string in, k, block;
-        AES_Encryption<128, AESMode::ECB> E;
-        ks = this->iv;
-        in = std::string(ks.begin(), ks.end());
-        k = std::string(this->parameter.key.begin(), this->parameter.key.end());
-        block = std::string(this->parameter.data.begin(), this->parameter.data.end());
-        r = E.apply(in, k);
-
-        size_t offset = blocksize - i >= 16 ? 16 : blocksize - i;
-        std::string dblock;
-        for (int c = 0; c < offset; ++c) {
-          dblock += block[i + c];
-        }
-        for (int c = 0; c < dblock.size(); ++c) {
-          dblock[c] ^= r[c];
-        }
-        for (int g = 0; g < dblock.length(); ++g) {
-          out.push_back(dblock[g]);
-        }
-        this->iv.assign(dblock.begin(), dblock.end());
-      }
+      CFB_Mode::Encryption(this, this->parameter, out);
     } else if (Mode == AESMode::GCM) {
       throw std::runtime_error("GCM mode not implemented yet!!");
     } else {
@@ -772,88 +816,11 @@ public:
 
   void _modeTransformation(std::vector<byte> &out) {
     if (Mode == AESMode::CTR) {
-      std::string block = std::string(this->parameter.data.begin(), this->parameter.data.end());
-      size_t blocksize = this->parameter.data.size();
-      for (int i = 0; i < blocksize; i += 16) {
-        std::vector<byte> ks, r;
-        std::string in, k;
-        AES_Encryption<128, AESMode::ECB> E;
-        ks = CTR_Mode::join(this->iv, this->counter);
-        in = std::string(ks.begin(), ks.end());
-        k = std::string(this->parameter.key.begin(), this->parameter.key.end());
-
-        r = E.apply(in, k);
-
-        size_t offset = blocksize - i >= 16 ? 16 : blocksize - i;
-        std::string dblock;
-        for (int c = 0; c < offset; ++c) {
-          dblock += block[i + c];
-        }
-        for (int c = 0; c < dblock.size(); ++c) {
-          dblock[c] ^= r[c];
-        }
-        for (int g = 0; g < dblock.length(); ++g) {
-          out.push_back(dblock[g]);
-        }
-        ++this->counter;
-      }
+       CTR_Mode::Decryption(this, this->parameter, out);
     } else if (Mode == AESMode::OFB) {
-
-      size_t blocksize = this->parameter.data.size();
-      std::string result;
-      for (int i = 0; i < blocksize; i += 16) {
-
-        std::vector<byte> ks, r;
-        std::string in, k, block;
-        AES_Encryption<128, AESMode::ECB> E;
-        ks = this->iv;
-        in = std::string(ks.begin(), ks.end());
-        k = std::string(this->parameter.key.begin(), this->parameter.key.end());
-        block = std::string(this->parameter.data.begin(), this->parameter.data.end());
-        r = E.apply(in, k);
-
-        size_t offset = blocksize - i >= 16 ? 16 : blocksize - i;
-        std::string dblock;
-        for (int c = 0; c < offset; ++c) {
-          dblock += block[i + c];
-        }
-        for (int c = 0; c < dblock.size(); ++c) {
-          dblock[c] ^= r[c];
-        }
-        for (int g = 0; g < dblock.length(); ++g) {
-          out.push_back(dblock[g]);
-        }
-        this->iv.assign(r.begin(), r.end());
-      }
-
+ OFB_Mode::Decryption(this, this->parameter, out);
     } else if (Mode == AESMode::CFB) {
-      size_t blocksize = this->parameter.data.size();
-      std::string result;
-      for (int i = 0; i < blocksize; i += 16) {
-
-        std::vector<byte> ks, r;
-        std::string in, k, block;
-        AES_Encryption<128, AESMode::ECB> E;
-        ks = this->iv;
-        in = std::string(ks.begin(), ks.end());
-        k = std::string(this->parameter.key.begin(), this->parameter.key.end());
-        block = std::string(this->parameter.data.begin(), this->parameter.data.end());
-        std::string pblock = block;
-        r = E.apply(in, k);
-
-        size_t offset = blocksize - i >= 16 ? 16 : blocksize - i;
-        std::string dblock;
-        for (int c = 0; c < offset; ++c) {
-          dblock += block[i + c];
-        }
-        for (int c = 0; c < dblock.size(); ++c) {
-          dblock[c] ^= r[c];
-        }
-        for (int g = 0; g < dblock.length(); ++g) {
-          out.push_back(dblock[g]);
-        }
-        this->iv.assign(pblock.begin(), pblock.end());
-      }
+      CFB_Mode::Decryption(this, this->parameter, out);
     } else if (Mode == AESMode::GCM) {
          throw std::runtime_error("GCM mode not implemented yet!!");
     } else {
@@ -1010,7 +977,7 @@ public:
 
 #endif
 
-static const std::string cPlaintext("this is a secret message to deliver to julius cesar the emperor!");
+static const std::string cPlaintext("this is a secret message!");
 static std::string plaintext(cPlaintext.begin(), cPlaintext.begin() + 1);
 static std::string keyAES128(CSPRNG::genSecKeyBlock(128));
 static std::string keyAES192(CSPRNG::genSecKeyBlock(192));
@@ -1020,7 +987,7 @@ static std::vector<byte> IV(16), authTag(16);
 static size_t tscore = 3 * 5;
 static size_t S_THRESHOLD = 0;
 
-static constexpr size_t exec_delay = 20; // delay between each execution(ms)
+static constexpr size_t exec_delay = 10; // delay between each execution(ms)
 
 // AES ECB Mode, multiple key size constructors
 AES_Encryption<AES128KS, AESMode::ECB> aesECB128Encryptor;
