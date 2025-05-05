@@ -1,14 +1,25 @@
-# [AES](https://en.wikipedia.org/wiki/Advanced_Encryption_Standard) Algorithm
+# AES Algorithm
 
 # Contents
+
+* Disclaimer
 * How AES works
 * Prerequisites
 * Code Components
 * Test Vectors
 * Usage
 * Limitations
+* Resources
 * Contributions
 * License
+
+
+## ⚠ Disclaimer 🚨
+
+This implementation of the **AES (Advanced Encryption Standard)** algorithm is provided for **educational and demonstration purposes only**.  
+It is **not intended** to be secure, efficient, or suitable for production environments.  
+
+👉 **Recommendation:** Use well-established and thoroughly tested cryptographic libraries for robust encryption needs.
 
 
 ## How AES works
@@ -949,6 +960,52 @@ I need to specify that this code is not secure, and is not efficient, use it for
    
 2. **CSPRNG on Windows**:
    - Windows uses a fallback Mersenne Twister PRNG, which provides lower entropy.
+
+
+### 🔗 Resources
+
+#### **📚 General Cryptography**
+- [Cryptography (Wikipedia)](https://en.wikipedia.org/wiki/Cryptography)  
+- [Cryptographic Primitives Overview](https://en.wikipedia.org/wiki/Cryptographic_primitive)  
+- [Symmetric-key Cryptography](https://en.wikipedia.org/wiki/Symmetric-key_algorithm)  
+- [Public-key Cryptography](https://en.wikipedia.org/wiki/Public-key_cryptography)  
+
+#### **🔐 AES (Advanced Encryption Standard)**
+- [AES (Wikipedia)](https://en.wikipedia.org/wiki/Advanced_Encryption_Standard)  
+- [NIST AES Specification (FIPS 197)](https://nvlpubs.nist.gov/nistpubs/FIPS/NIST.FIPS.197.pdf)  
+- [AES Explained (Khan Academy)](https://www.khanacademy.org/computing/computer-science/cryptography/modern-crypt/v/advanced-encryption-standard-aes)  
+- [AES Key Sizes and Security](https://www.cryptopp.com/wiki/Advanced_Encryption_Standard)  
+
+#### **🧩 Block Ciphers**
+- [Block Cipher (Wikipedia)](https://en.wikipedia.org/wiki/Block_cipher)  
+- [Modes of Block Ciphers](https://en.wikipedia.org/wiki/Block_cipher_mode_of_operation)  
+- [ECB vs CBC vs CTR Modes](https://crypto.stackexchange.com/questions/202/what-are-the-differences-between-ecb-cbc-and-ctr-encryption-modes)  
+- [Padding in Block Ciphers](https://crypto.stackexchange.com/questions/2996/what-is-padding-and-why-is-it-required)  
+
+#### **📦 Cryptographic Libraries**
+- [Crypto++](https://cryptopp.com/)  
+- [OpenSSL](https://www.openssl.org/)  
+- [Bouncy Castle](https://www.bouncycastle.org/)  
+- [Libsodium](https://libsodium.org/)  
+
+#### **📘 Cryptanalysis and Attacks**
+- [Cryptanalysis (Wikipedia)](https://en.wikipedia.org/wiki/Cryptanalysis)  
+- [Side-channel Attacks](https://en.wikipedia.org/wiki/Side-channel_attack)  
+- [Differential Cryptanalysis](https://en.wikipedia.org/wiki/Differential_cryptanalysis)  
+- [Linear Cryptanalysis](https://en.wikipedia.org/wiki/Linear_cryptanalysis)  
+
+#### **📄 Additional Learning Resources**
+- [Applied Cryptography by Bruce Schneier](https://www.schneier.com/books/applied_cryptography/)  
+- [Introduction to Modern Cryptography](https://www.crcpress.com/Introduction-to-Modern-Cryptography/Katz-Lindell/p/book/9780367331757)  
+- [Cryptography I (Stanford Online)](https://online.stanford.edu/courses/cs155-cryptography)  
+
+#### **🛠 Tools for Cryptography**
+- [Online AES Encryption Tool](https://www.devglan.com/online-tools/aes-encryption-decryption)  
+- [CyberChef (The Cyber Swiss Army Knife)](https://gchq.github.io/CyberChef/)  
+- [Hash Function Testers](https://passwordsgenerator.net/sha256-hash-generator/)  
+
+---
+
 
 ---
 
