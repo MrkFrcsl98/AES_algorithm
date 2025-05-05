@@ -1,30 +1,30 @@
-# AES Algorithm
+# [AES](https://en.wikipedia.org/wiki/Advanced_Encryption_Standard) Algorithm
 
  
 
-The goal of this AES implementation is to provide an understanding of how AES works, AES internal mathematical operations, and its fundamental concepts that make AES so efficient, this has been written in c++ instead of C, this 
-is because writing this in C would require an enormous amount of code and you will get lost before reaching the KeySchedule operation.
+The goal of this [AES](https://en.wikipedia.org/wiki/Advanced_Encryption_Standard) implementation is to provide an understanding of how [AES](https://en.wikipedia.org/wiki/Advanced_Encryption_Standard) works, [AES](https://en.wikipedia.org/wiki/Advanced_Encryption_Standard) internal mathematical operations, and its fundamental concepts that make [AES](https://en.wikipedia.org/wiki/Advanced_Encryption_Standard) so efficient, this has been written in c++ instead of C, this 
+is because writing this in C would require an enormous amount of code and you will get lost before reaching the [KeySchedule](https://en.wikipedia.org/wiki/AES_key_schedule) operation.
 
-Note that the code i've written is not intended to be efficient or secure, it just demonstrated AES operations.
+Note that the code i've written is not intended to be efficient or secure, it just demonstrated [AES](https://en.wikipedia.org/wiki/Advanced_Encryption_Standard) operations.
 
 I suppose that who is reading this already has some basic knowledge of c++ programming, i tried to not use too complex concepts or esoteric c++ programming, but you are required 
 to be familar with basic c++ programming paradigms like OOP(object oriented programming) or template specialization techniques, as these techniques made the code shorter and more comprehensive.
 
-AES aka Rijndale, is a symmetric block cipher algorithm that was developed by the US in 2001 and approved by NIST(national-institute-of-standards-and-technology) to become the AES specification
+AES aka Rijndale, is a symmetric block cipher algorithm that was developed by the US in 2001 and approved by [NIST](https://www.nist.gov/)(national-institute-of-standards-and-technology) to become the [AES](https://en.wikipedia.org/wiki/Advanced_Encryption_Standard) specification
 for the encryption of electronic data.
 
-Before AES, DES(Data-Encryption-Standard) was used to encrypt digital data, DES uses a feistel network and it worked fine for some time, but soon vulnerabilities were found in DES, one being a short key size(64bit), so AES was developed 
+Before AES, DES(Data-Encryption-Standard) was used to encrypt digital data, DES uses a feistel network and it worked fine for some time, but soon vulnerabilities were found in DES, one being a short key size(64bit), so [AES](https://en.wikipedia.org/wiki/Advanced_Encryption_Standard) was developed 
 to address these issues.
 
 If you want to see also how `DES` works, i have another project [here](https://github.com/MrkFrcsl98/DES_algorithm) that implements DES from scratch, of course, educational purposes only, 
 do not even think about using it in real life scenarios because i did not implement any security measures and is not even efficient, it just demonstrates how DES works. 
 
-Rijndael, which is the AES underlying block cipher algorithm, is a symmetric block cipher algorithm that specifies different key and block sizes, but for AES, NIST approved 
+Rijndael, which is the [AES](https://en.wikipedia.org/wiki/Advanced_Encryption_Standard) underlying block cipher algorithm, is a symmetric block cipher algorithm that specifies different key and block sizes, but for AES, [NIST](https://www.nist.gov/) approved 
 the block size to be 128bits and 3 different key sizes(128, 192 and 256 bits). 
 
 AES unlike DES which uses a feistel network structure, it uses a susbtitution-permutation-network and is efficient both in hardware and software.
 
-Unlike DES which uses a fixed number of rounds(16), AES number of rounds depend on the key size used:
+Unlike DES which uses a fixed number of rounds(16), [AES](https://en.wikipedia.org/wiki/Advanced_Encryption_Standard) number of rounds depend on the key size used:
 
 | KEYSIZE | ROUNDS |
 |---------|--------|
@@ -32,7 +32,7 @@ Unlike DES which uses a fixed number of rounds(16), AES number of rounds depend 
 | 192     | 12     |
 | 256     | 14     |
 
-AES defines several constanst(lookup tables) used by AES key operations to generate roundkeys, substitute bytes, etc...
+AES defines several constanst(lookup tables) used by [AES](https://en.wikipedia.org/wiki/Advanced_Encryption_Standard) key operations to generate roundkeys, substitute bytes, etc...
 These tables are defined as follows:
 
 | Constant    | SIZE(bytes) |
@@ -43,17 +43,17 @@ These tables are defined as follows:
 | InvMixCols  | 16          |
 | Rcon        | 256         |
 
-These constants are extremely important for AES to work correctly, if a single byte within one of these tables is corrupted or incorrect, AES will fail.
+These constants are extremely important for [AES](https://en.wikipedia.org/wiki/Advanced_Encryption_Standard) to work correctly, if a single byte within one of these tables is corrupted or incorrect, [AES](https://en.wikipedia.org/wiki/Advanced_Encryption_Standard) will fail.
 These lookup tables are constructed using a combination of gallois field multiplications and affine transformations.
 Additionally there is another important constant value defined by AES, this is the `Nb` constant, which specifies the number of columns in the state
 array, and is always set to `4` for AES, this means that the state array is always represented by a 4*4 matrix of bytes.
 
-Additionally AES defines 2 more constants, one is called `Nk` and the other `Nr`.
+Additionally [AES](https://en.wikipedia.org/wiki/Advanced_Encryption_Standard) defines 2 more constants, one is called `Nk` and the other `Nr`.
 
 **Nk** defines the number of 32bit words in the encryption key, these can be 4 for 128bit key, 6 for 192bit key and 8 for 256bit key, but this can be calculated 
 like this: `KEY_SIZE / 32`.
 
-**Nr** defines the number of rounds for AES based on the key size, as already said, for 128 bit key, there are a total of 10 rounds, for  192 bit key, there are 
+**Nr** defines the number of rounds for [AES](https://en.wikipedia.org/wiki/Advanced_Encryption_Standard) based on the key size, as already said, for 128 bit key, there are a total of 10 rounds, for  192 bit key, there are 
 a total of 12 rounds, etc...
 
 
@@ -119,11 +119,11 @@ and performs several operations like key rotation, several transformations and x
 ```
 
 ### Padding
-As i said, AES works on fixed block size which is 128bits(16 bytes), the data must be multiple of the block size in order for AES to work correctly, 
+As i said, [AES](https://en.wikipedia.org/wiki/Advanced_Encryption_Standard) works on fixed block size which is 128bits(16 bytes), the data must be multiple of the block size in order for [AES](https://en.wikipedia.org/wiki/Advanced_Encryption_Standard) to work correctly, 
 what happens if the data is not a multiple of the block size? well... you need to implement a padding scheme, a common scheme is PKCS#7, which is a standard developed by the RSA laboratories.
 PKCS#7 calculates the total number of bytes to append to the last 16byte block in order to make it a multiple of 16(block size).
 The process is very simple, if the last block is 14 bytes long and the required block size is 16 bytes, the total number of bytes to append is 2 in order to
-make it a multiple of 16, so PKCS#7 will append 2 bytes all with the value of `2`, if the block size was 12, then would append 4 bytes all with value of `4`.
+make it a multiple of 16, so [PKCS#7](https://en.wikipedia.org/wiki/PKCS_7) will append 2 bytes all with the value of `2`, if the block size was 12, then would append 4 bytes all with value of `4`.
 For example:
 
 `Data = abcdefghijklmn` 14 bytes
@@ -134,7 +134,7 @@ as you can see, we need 2 more bytes to append to the block of data in order to 
 
 final block: `01100001 01100010 01100011 01100100 01100101 01100110 01100111 01101000 01101001 01101010 01101011 01101100 01101101 01101110 00000010 00000010`
 
-Now AES can operate on that block of data as it successfully become a multiple of 16.
+Now [AES](https://en.wikipedia.org/wiki/Advanced_Encryption_Standard) can operate on that block of data as it successfully become a multiple of 16.
 After decryption, the padding is removed by taking the last byte of the block, and popping from the back of the block until the last byte is not the original last byte anymore.
 
 Block Padding 
@@ -171,18 +171,18 @@ __attribute__((cold, nothrow)) inline void _pkcs7Dettach(std::vector<uint8_t> &d
 ```
 
 ### Mode Of Operation
-AES splits data into 16 byte blocks, each block is then processes by any mode of operation, by default AES employs `ECB`(Electronic-CodeBook) Mode, which 
-is the most simple but also weak mode of operation, actually, this mode is also called `mode-less` mode, as it is actually just AES implementation.
+AES splits data into 16 byte blocks, each block is then processes by any mode of operation, by default [AES](https://en.wikipedia.org/wiki/Advanced_Encryption_Standard) employs `ECB`(Electronic-CodeBook) Mode, which 
+is the most simple but also weak mode of operation, actually, this mode is also called `mode-less` mode, as it is actually just [AES](https://en.wikipedia.org/wiki/Advanced_Encryption_Standard) implementation.
 The mode of operation specifies how blocks of data are processed, depending on the mode of operation, blocks can be processed in a stream-like manner or fixed-block sizes.
 In **ECB** block cipher mode of operation, each block of plaintext is encrypted independently, if a block of plaintext is similar to other blocks, ECB mode
-will produce the same ciphertext block, this will lead to pattern recognition or replay attacks due to lack of `diffusion` in the cipher mode.
+will produce the same ciphertext block, this will lead to pattern recognition or replay attacks due to lack of [diffusion](https://en.wikipedia.org/wiki/Confusion_and_diffusion) in the cipher mode.
 Depending on the underlying mode of operation, padding will be required or not required, in the case of `ECB`, padding is required.
 In ECB padding is required because each block is treated as a fixed 16 bytes block of data, unlike other modes like `CTR`(Counter) mode, which transforms a block cipher into a stream cipher and generates a keystream by encrypting a counter(nonce+counter) value with the key, after generating the keystream, it processes data in 16 byte blocks by xoring the keystream bits with the 16 bytes block, the difference is that the keystream is 16bytes long, and CTR mode operates on blocks of 16 bytes as well, but the way the plaintext/ciphertext block is xored with the keystream allows for arbitrary block sizes.
 There are different modes of operation available for AES, some are: **ECB**, **CBC**, **CTR**, **OFB**, **CFB**, **GCM**.
 Different modes have different properties(encryption/decryption **Parallelizable**, random read access), parallelizable refers to the ability to process data
 simultaneously instead of sequentially.
 
-| Mode | Parallelizable | Parallelizable | Random-Read  | IV  | Counter | Style of Processing |
+| Mode | Parallelizable | Parallelizable | Random-Read  | [IV](https://en.wikipedia.org/wiki/Initialization_vector)  | Counter | Style of Processing |
 |------|----------------|----------------|--------------|-----|---------|---------------------|
 |      | Encryption     | Decryption     | Access       |     |         |                     |
 |      |                |                |              |     |         |                     |
@@ -194,7 +194,7 @@ simultaneously instead of sequentially.
 | GCM  | YES            | YES            | YES          | YES | YES     | Stream-like         |
 
 
-Pseudo code for AES ECB Encryption/Decryption:
+Pseudo code for [AES](https://en.wikipedia.org/wiki/Advanced_Encryption_Standard) ECB Encryption/Decryption:
 ```
 BEGIN
     DEFINE BLOCK_SIZE = 16
@@ -214,7 +214,7 @@ BEGIN
 END
 ```
 
-Pseudo code for AES CBC Encryption/Decryption
+Pseudo code for [AES](https://en.wikipedia.org/wiki/Advanced_Encryption_Standard) CBC Encryption/Decryption
 ```
 BEGIN
     DEFINE BLOCK_SIZE = 16
@@ -240,7 +240,7 @@ BEGIN
 END
 ```
 
-Pseudo code for AES OFB Encryption/Decryption
+Pseudo code for [AES](https://en.wikipedia.org/wiki/Advanced_Encryption_Standard) OFB Encryption/Decryption
 ```
 BEGIN
     DEFINE BLOCK_SIZE = 16
@@ -264,7 +264,7 @@ BEGIN
 END
 ```
 
-Pseudo code for AES CFB Encryption/Decryption
+Pseudo code for [AES](https://en.wikipedia.org/wiki/Advanced_Encryption_Standard) CFB Encryption/Decryption
 ```
 BEGIN
     DEFINE BLOCK_SIZE = 16
@@ -291,7 +291,7 @@ END
 ```
 
 
-Pseudo code for AES CTR Encryption/Decryption
+Pseudo code for [AES](https://en.wikipedia.org/wiki/Advanced_Encryption_Standard) CTR Encryption/Decryption
 ```
 BEGIN
     DEFINE BLOCK_SIZE = 16
@@ -319,7 +319,7 @@ BEGIN
 END
 ```
 
-Pseudo code for AES GCM Encryption/Decryption
+Pseudo code for [AES](https://en.wikipedia.org/wiki/Advanced_Encryption_Standard) GCM Encryption/Decryption
 ```
 BEGIN
     DEFINE BLOCK_SIZE = 16
@@ -350,30 +350,30 @@ END
 ```
 
 
-`ECB` mode does not require any additional authentication data(**AAD**) unlike `CBC` which requires an **IV**(initialization-vector), the IV must be of 16 bytes in size and used only once per session.
+`ECB` mode does not require any additional authentication data(**AAD**) unlike `CBC` which requires an **[IV](https://en.wikipedia.org/wiki/Initialization_vector)**(initialization-vector), the [IV](https://en.wikipedia.org/wiki/Initialization_vector) must be of 16 bytes in size and used only once per session.
 `ECB` mode and `CBC` mode do not provide integrity and authenticity of data, for this purpose there are other modes.
 Other modes like `CTR`, also require an additional value, called the counter, which is usually set to 0, and incremented for each round.
-In `CTR` mode the IV is actually called `nonce`, the counter and the nonce are combined and encrypted using AES-ECB to generate a keystream, this keystream will then be xored with the plaintext to produce the first ciphertext block. 
+In `CTR` mode the [IV](https://en.wikipedia.org/wiki/Initialization_vector) is actually called [nonce](https://en.wikipedia.org/wiki/Cryptographic_nonce), the counter and the nonce are combined and encrypted using AES-ECB to generate a keystream, this keystream will then be xored with the plaintext to produce the first ciphertext block. 
 Decryption in `CTR` is identical to encryption, instead of using the plaintext, it xor's the ciphertext with the keystream to recover the plaintext.
 None of these modes provide authenticity and integrity of data, if you want authenticity and inegrity of data being processed, you will use a mode called `GCM`(gallois-counter) mode.
 `GCM` provides both authenticity and integrity, this is done with an additional value called the `authTag`, which is a special tag used to authenticated the message or data, the tag is appended to the message and then extracted to authenticate it. 
 `GCM` uses `CTR` block cipher algorithm at its core, with additional authentication and integrity check mechanisms, GCM is both fast and secure, but more complex to implement.
 In other words, the mode of operation defines how blocks of data are processed and if additional authentication data `aad` and `authTag` used in `GCM` mode need to be applied or not.
 Depending on the mode of operation, data can be processed in a stream-like manner or in a fixed-size blocks. Modes like `ECB` and `CBC`, process data in a fixed-block size, where each block 
-is 128bits(16 bytes) long, these modes of operation require the data to be a multiple of the block size, in the case of `AES`, the block size is always 128bits(16 bytes), and a padding scheme such as `PKCS#7` needs to be applied to the data before processing. 
+is 128bits(16 bytes) long, these modes of operation require the data to be a multiple of the block size, in the case of `AES`, the block size is always 128bits(16 bytes), and a padding scheme such as [PKCS#7](https://en.wikipedia.org/wiki/PKCS_7) needs to be applied to the data before processing. 
 Other modes such as `OFB`or `CTR`, process data in a stream-like style, here, the last block of data does not need to be padded.
 In `CTR` mode, a counter and a nonce, are used to generate a keystream, a 16 byte block of data later xored with the block of plaintext, which can be either 16 bytes or shorter. 
 The nonce must be 8 bytes long, and the counter must also 8 bytes long, the counter is combined with the nonce and then encrypted using the key in `ECB` mode, as i said, ECB basically is a mode-less mode, and the result is xored with the plaintext or ciphertext depending on the operation begin performed. 
-`CBC` mode is very simple mode of operation, the encryption starts with an initial `IV`, the `IV` is a 128bit array of secure random bytes, which must be generated by a `CSPRNG` function or if there is no possibility of using a `CSPRNG`, a `PRNG` is used instead, but the last one is very insecure and often generates predictable and deterministic random bytes.
-During the first round of encryption, `CBC` xores the IV with the first 16 byte block of the plaintext, the result is then encrypted and the `IV`  becomes the encrypted 16 byte block, the 
-next round, `CBC` will again repeat this operation, but this time, the IV will be the previous encrypted block, the process repeats for all blocks of data until reaching the last block.
-For `CBC` decryption operation, the algorithm start again with the original `IV`, be very careful in this step, because the IV must be the original value used in the initial round of encryption and not the last encrypted block, wrong usage of the IV will lead to errors in decryption, so make sure the original IV is not modified by the encryption operation.
-The decryption process is similar to encryption, with minor differences, the way data is processed stays the same, but instead of xoring the IV with the ciphertext block, first the ciphertext block denoted by `Ci`, is decrypted using the same key, and then the `IV` which during the first round will be the original IV also used within the first round of encryption,
+`CBC` mode is very simple mode of operation, the encryption starts with an initial `IV`, the `IV` is a 128bit array of secure random bytes, which must be generated by a [CSPRNG](https://en.wikipedia.org/wiki/Cryptographically_secure_pseudorandom_number_generator) function or if there is no possibility of using a [CSPRNG](https://en.wikipedia.org/wiki/Cryptographically_secure_pseudorandom_number_generator), a `PRNG` is used instead, but the last one is very insecure and often generates predictable and deterministic random bytes.
+During the first round of encryption, `CBC` xores the [IV](https://en.wikipedia.org/wiki/Initialization_vector) with the first 16 byte block of the plaintext, the result is then encrypted and the `IV`  becomes the encrypted 16 byte block, the 
+next round, `CBC` will again repeat this operation, but this time, the [IV](https://en.wikipedia.org/wiki/Initialization_vector) will be the previous encrypted block, the process repeats for all blocks of data until reaching the last block.
+For `CBC` decryption operation, the algorithm start again with the original `IV`, be very careful in this step, because the [IV](https://en.wikipedia.org/wiki/Initialization_vector) must be the original value used in the initial round of encryption and not the last encrypted block, wrong usage of the [IV](https://en.wikipedia.org/wiki/Initialization_vector) will lead to errors in decryption, so make sure the original [IV](https://en.wikipedia.org/wiki/Initialization_vector) is not modified by the encryption operation.
+The decryption process is similar to encryption, with minor differences, the way data is processed stays the same, but instead of xoring the [IV](https://en.wikipedia.org/wiki/Initialization_vector) with the ciphertext block, first the ciphertext block denoted by `Ci`, is decrypted using the same key, and then the `IV` which during the first round will be the original [IV](https://en.wikipedia.org/wiki/Initialization_vector) also used within the first round of encryption,
 is xored with the decrypted block and the `IV` becomes the previous ciphertext block, this process is repeated for all blocks of data.
 
 #### State Matrix Initialization
 
-During each round of encryption, AES performs a state matrix initialization operation, the state matrix, which is a 4*4 matrix(4 rows and 4 columns) for AES-128, undergoes a transposition operation, 
+During each round of encryption, [AES](https://en.wikipedia.org/wiki/Advanced_Encryption_Standard) performs a state matrix initialization operation, the state matrix, which is a 4*4 matrix(4 rows and 4 columns) for AES-128, undergoes a [transposition](https://en.wikipedia.org/wiki/Transpose) operation, 
 where each byte is of the block is transposed from a linear format into a column-major order, let's say the block of data contains the following bytes: `abcdefghijklmnop`, the state matrix 
 will be populated like this: 
 
@@ -399,7 +399,7 @@ state_matrix[2][3] = 'o'  (bytes[2 + 4*3])
 state_matrix[3][3] = 'p'  (bytes[3 + 4*3])
 ```
 
-In this code, the specific function responsible for this transposition during state matrix initialization is:
+In this code, the specific function responsible for this [transposition](https://en.wikipedia.org/wiki/Transpose) during state matrix initialization is:
 
 ```cpp
 __attribute__((hot, nothrow)) inline void _initStateMatrix(const std::string &block) noexcept
@@ -410,18 +410,18 @@ __attribute__((hot, nothrow)) inline void _initStateMatrix(const std::string &bl
     }
 ```
 
-As you can see, there is no error checking at all, i know it should be, but the only goal of this project is to demostrate AES implementation, not to provide you with a fully working 
+As you can see, there is no error checking at all, i know it should be, but the only goal of this project is to demostrate [AES](https://en.wikipedia.org/wiki/Advanced_Encryption_Standard) implementation, not to provide you with a fully working 
 AES cryptography library, for this purpose there are lots of secure and established libraries like `openSSL` or `crypto++` for C/c++.
 
 After state matrix initialization, the method `addRoundKey` is invoked specifying the round as `0` for the argument, during this operation, the state matrix undergoes a transformation where specific byte positions are xored with the current round key aka subkey, during decryption, the value of the parameter which previously was passed as `0`, will be the value of `Nr`, which is the number of rounds.
 
-After this initial addRoundKey execution during encryption, a function called `initMainRounds` will perform `SubBytes`, `ShiftRows`, `mixColumns`, and an additional `addRoundKey` operation, 
-these sequence of transformations will provide diffusion, confusion and non-linearity into the algorithm, which are essential properties for a secure algorithm.
+After this initial addRoundKey execution during encryption, a function called `initMainRounds` will perform [SubBytes](https://en.wikipedia.org/wiki/Rijndael_S-box), `ShiftRows`, [mixColumns](https://en.wikipedia.org/wiki/Rijndael_MixColumns), and an additional `addRoundKey` operation, 
+these sequence of transformations will provide diffusion, [confusion](https://en.wikipedia.org/wiki/Confusion_and_diffusion) and non-linearity into the algorithm, which are essential properties for a secure algorithm.
 
 #### Encryption - SubBytes
 
 First it start with `subBytes` operation, during this operation the previous table we defined as `Sbox`(substitution-box) is used for byte substitution.
-The state matrix undergoes a transformation process, which is a non-linear byte substitution operation that provides confusion, again... `confusion` refers to the process of 
+The state matrix undergoes a transformation process, which is a non-linear byte substitution operation that provides confusion, again... [confusion](https://en.wikipedia.org/wiki/Confusion_and_diffusion) refers to the process of 
 obscuring the relationship between the plaintext and the ciphertext, during `subBytes` execution, state matrix bytes are replaced with specific bytes from the `Sbox` table.
 For example, let's say the current byte undergoing the substitution has the value `0x53`, this means that this byte will be replaced with the value from the `Sbox[0x53]`, this is a very simple concept.
 
@@ -449,7 +449,7 @@ For example, let's say the current byte undergoing the substitution has the valu
 
 #### Encryption - ShiftRows
 
-After `SubBytes` operation, the following function to execute is `ShiftRows`.
+After [SubBytes](https://en.wikipedia.org/wiki/Rijndael_S-box) operation, the following function to execute is `ShiftRows`.
 During ShiftRows operation, the rows of the state matrix are shifted to the left cyclically by `n` positions, the first row stays the same, the second row is shifted to the left
 by 1 position, the third row is shifted to the left by 2 positions, and the fourth row is shifted to the left by 3 positions.
 
@@ -478,7 +478,7 @@ The result state matrix will be:
 #### Encryption - MixColumns
 
 After `shiftRows`, `MixColumns` is performed. This function is more complex than the previous 2 operations, as it employs gallois-field multiplication operations.
-This operation introduces `diffusion` by mixing bytes in each column of the state matrix, this is done using matrix multiplication in a finite field(`GF(2^8)`).
+This operation introduces [diffusion](https://en.wikipedia.org/wiki/Confusion_and_diffusion) by mixing bytes in each column of the state matrix, this is done using matrix multiplication in a finite field(`GF(2^8)`).
 
 Let's say you have a 4*4 state matrix with the value of:
 
@@ -529,7 +529,7 @@ Column 3: [s3, s7, sb, sf]  -> [m3, m7, mb, mf]
 [mc, md, me, mf]
 ```
 
-The function in this code responsible for handling this `mixColumns` operation is defined as following:
+The function in this code responsible for handling this [mixColumns](https://en.wikipedia.org/wiki/Rijndael_MixColumns) operation is defined as following:
 
 ```cpp
  __attribute__((hot, nothrow)) inline void _mixColumns() noexcept
@@ -554,9 +554,9 @@ I will skip the description of gallois field multiplication, as it requires a lo
 #### Encryption - AddRoundKey
 
 You should be already familiar with this operation, as we talked about it before, so now i will just skip the introduction to it and just let you know that this operation gets called in every round 
-of encryption and decryption as the last function, and it just adds more diffusion to the process.
+of encryption and decryption as the last function, and it just adds more [diffusion](https://en.wikipedia.org/wiki/Confusion_and_diffusion) to the process.
 
-Round operations in AES look like this:
+Round operations in [AES](https://en.wikipedia.org/wiki/Advanced_Encryption_Standard) look like this:
 
 ```cpp
 for (uint64_t round = 1; round < Nr; ++round)
@@ -573,10 +573,10 @@ for (uint64_t round = 1; round < Nr; ++round)
 
 ### Encryption - Final Round
 
-The final round of AES encryption consists of all the operations within each round but it omits the `mixColumns` operation.
-You might ask why, well, i did ask why as well when i was learning about this, the reason is that as you might know at this point, AES encryption and decryption
+The final round of [AES](https://en.wikipedia.org/wiki/Advanced_Encryption_Standard) encryption consists of all the operations within each round but it omits the [mixColumns](https://en.wikipedia.org/wiki/Rijndael_MixColumns) operation.
+You might ask why, well, i did ask why as well when i was learning about this, the reason is that as you might know at this point, [AES](https://en.wikipedia.org/wiki/Advanced_Encryption_Standard) encryption and decryption
 processes are symmetric, meaning the operations must be reversible, if mixColumns were to be applies also in the last round, it will require an additional step to undo it during decryption.
-So, omitting `mixColumns` in the last round, ensures that the ciphertext can be decryption without additional operations, if it is not omitted in the last round, it would further mix the 
+So, omitting [mixColumns](https://en.wikipedia.org/wiki/Rijndael_MixColumns) in the last round, ensures that the ciphertext can be decryption without additional operations, if it is not omitted in the last round, it would further mix the 
 bytes, making the final decryption step unnecessarily complex and less efficient. 
 
 The final round operations instead look like this:
@@ -597,9 +597,9 @@ during decryption, the operations are the same with minor changes:
 - instead of using `Sbox` table, decryption uses `InvSbox` table.
 - instead of using `mixCols` table, decryption uses `InvMixCols` table.
 
-Beside the change in the tables used for the operations(subBytes, mixColumns), there are also some changes in the order of how `subBytes`, `shiftRows`, `mixColumns`, and `addRoundKey` operations
+Beside the change in the tables used for the operations(subBytes, mixColumns), there are also some changes in the order of how `subBytes`, `shiftRows`, [mixColumns](https://en.wikipedia.org/wiki/Rijndael_MixColumns), and `addRoundKey` operations
 are performed.
-During decryption, AES still performed the same steps with the usual initial `addRoundKey` operation, `n` rounds of decryption, and the final round of decryption where `invMixColumns` operation is 
+During decryption, [AES](https://en.wikipedia.org/wiki/Advanced_Encryption_Standard) still performed the same steps with the usual initial `addRoundKey` operation, `n` rounds of decryption, and the final round of decryption where `invMixColumns` operation is 
 omitted.
 
 #### Decryption - Each Round of Decryption
@@ -644,7 +644,7 @@ for (uint64_t round = (Nr - 1); round > 0; --round)
 
 ## How It Works
 
-### AES Components
+### [AES](https://en.wikipedia.org/wiki/Advanced_Encryption_Standard) Components
 
 
 ### Key Generation
@@ -655,7 +655,7 @@ for (uint64_t round = (Nr - 1); round > 0; --round)
 ### Prerequisites
 
 - A C++ compiler supporting C++17 or later.
-- Linux/Unix system recommended for the CSPRNG functionality.
+- Linux/Unix system recommended for the [CSPRNG](https://en.wikipedia.org/wiki/Cryptographically_secure_pseudorandom_number_generator) functionality.
 
 ### Example Code
 
@@ -686,13 +686,13 @@ Handles CFB(Cipher-Feedback) mode of operation.
 ### `AesCryptoModule::ModeOfOperation::CTR_Mode`
 Handles CTR(Counter) mode of operation.
 
-## AES Encryption/Decryption
+## [AES](https://en.wikipedia.org/wiki/Advanced_Encryption_Standard) Encryption/Decryption
 
 ### `AesCryptoModule::AES_Encryption`
-Handles AES encryption for a specified key size (`AES128KS`, `AES192KS` or `AES256KS`).
+Handles [AES](https://en.wikipedia.org/wiki/Advanced_Encryption_Standard) encryption for a specified key size (`AES128KS`, `AES192KS` or `AES256KS`).
 
 ### `AesCryptoModule::AES_Decryption`
-Handles AES decryption for a specified key size.
+Handles [AES](https://en.wikipedia.org/wiki/Advanced_Encryption_Standard) decryption for a specified key size.
 
 ### `AESUtils`
 Utility class for AES-specific operations:
