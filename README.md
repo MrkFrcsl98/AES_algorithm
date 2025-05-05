@@ -1,6 +1,17 @@
 # [AES](https://en.wikipedia.org/wiki/Advanced_Encryption_Standard) Algorithm
 
- 
+# Contents
+* How AES works
+* Prerequisites
+* Code Components
+* Test Vectors
+* Usage
+* Limitations
+* Contributions
+* License
+
+
+## How AES works
 
 The goal of this [AES](https://en.wikipedia.org/wiki/Advanced_Encryption_Standard) implementation is to provide an understanding of how [AES](https://en.wikipedia.org/wiki/Advanced_Encryption_Standard) works, [AES](https://en.wikipedia.org/wiki/Advanced_Encryption_Standard) internal mathematical operations, and its fundamental concepts that make [AES](https://en.wikipedia.org/wiki/Advanced_Encryption_Standard) so efficient, this has been written in c++ instead of C, this 
 is because writing this in C would require an enormous amount of code and you will get lost before reaching the [KeySchedule](https://en.wikipedia.org/wiki/AES_key_schedule) operation.
@@ -534,7 +545,7 @@ The function in this code responsible for handling this [mixColumns](https://en.
 ```cpp
  __attribute__((hot, nothrow)) inline void _mixColumns() noexcept
     {
-        for (uint8_t i = 0; i < Nb; ++i)
+        for (uint64_t i = 0; i < Nb; ++i)
         {
             std::array<byte, 4> temp;
             temp[0] = __gfmultip2(this->state_matrix[0][i]) ^ __gfmultip3(this->state_matrix[1][i]) ^ this->state_matrix[2][i]              ^ this->state_matrix[3][i];
@@ -582,7 +593,7 @@ bytes, making the final decryption step unnecessarily complex and less efficient
 The final round operations instead look like this:
 
 ```cpp
-void _finalRound(const uint8_t r) override
+void _finalRound(const uint64_t r) override
     {
         this->_subBytes();
         this->_shiftRows();
@@ -606,7 +617,7 @@ omitted.
 The structure of each round of decryption looks like this:
 
 ```cpp
-void _execRound(const uint8_t r) override
+void _execRound(const uint64_t r) override
     {
         this->_invShiftRows();
         this->_invSubBytes();
@@ -619,7 +630,7 @@ void _execRound(const uint8_t r) override
 as in the encryption process, the `invMixColumns` operation is omitted:
 
 ```cpp
-void _finalRound(const uint8_t r) override
+void _finalRound(const uint64_t r) override
     {
         this->_invShiftRows();
         this->_invSubBytes();
@@ -642,68 +653,143 @@ for (uint64_t round = (Nr - 1); round > 0; --round)
 ```
 
 
-## How It Works
 
-### [AES](https://en.wikipedia.org/wiki/Advanced_Encryption_Standard) Components
-
-
-### Key Generation
-
-
-## Usage
-
-### Prerequisites
+## Prerequisites
 
 - A C++ compiler supporting C++17 or later.
 - Linux/Unix system recommended for the [CSPRNG](https://en.wikipedia.org/wiki/Cryptographically_secure_pseudorandom_number_generator) functionality.
 
-### Example Code
+
+
+
+## Code Components 
+
+There are various components defined within `aes.hpp` header file, these are:
+
+- AesCryptoModule                      -> `namespace encapsulating all header file functions`
+- PRNG(Pseudo-Random-Number-Generator) -> `class that generates random bytes, used for key and iv byte generation`
+- AESUtils                             -> `class encapsulating general AES utility functions`
+- AESMode                              -> `namespace encapsulating various AES modes of operation`
+- AESMode::ECB_Mode                    -> `class for ECB mode of operation encryption/decryption operations`
+- AESMode::CBC_Mode                    -> `class for CBC mode of operation encryption/decryption operations`
+- AESMode::CTR_Mode                    -> `class for CTR mode of operation encryption/decryption operations`
+- AESMode::OFB_Mode                    -> `class for OFB mode of operation encryption/decryption operations`
+- AESMode::CFB_Mode                    -> `class for CFB mode of operation encryption/decryption operations`
+- AES_Encryption                       -> `AES encryption class, handles AES encryption`
+- AES_Decryption                       -> `AES decryption class, handles AES decryption`
+- AesEngine                            -> `AES Engine class, encapsulates AES operations like SubBytes, ShiftRows, etc...`
+
+
+## Test Vectors
+
+Additional test vectors can be found within `aes-test.hpp` header file, this includes the following members:
+
+- CSPRNG(Cryptographically-Secure-PRNG) -> `a secure PRNG version i wrote because the PRNG within aes.hpp produces predictable blocks for key/IV`
+- execAES128 -> `function to execute AES-128 tests`
+- execAES192 -> `function to execute AES-192 tests`
+- execAES256 -> `function to execute AES-256 tests`
+- run_AES_ECB_test -> `execute test for AES-ECB mode with key size(128, 192 and 256)`
+- run_AES_CBC_test -> `execute test for AES-CBC mode with key size(128, 192 and 256)`
+- run_AES_CTR_test -> `execute test for AES-CTR mode with key size(128, 192 and 256)`
+- run_AES_OFB_test -> `execute test for AES-OFB mode with key size(128, 192 and 256)`
+- run_AES_CFB_test -> `execute test for AES-CFB mode with key size(128, 192 and 256)`
+- runGlobal -> `execute all above test vectors`
+
+**NOTE** that the CSPRNG version within `aes-test.hpp` works only on linux systems, i did not implement it for windows systems, if you're using windows, the fallback function will be
+the one using mersenneTwister PRNG!
+
+
+## Usage 
+
+Now let's see how to use the code in `aes.hpp` and `aes-test.hpp`, this is the easy part if you reached this point.
+
+First of all, let's say that `AES_Encryption` and `AES_Decryption` both use template specialization to handle different AES key sizes and various modes of operation.
+To use `AES_Encryption`/`AES_Decryption` utility classes, you need to include `aes.hpp` header file:
 
 ```cpp
+#include "aes.hpp"
+```
+
+After including the header file, `AES_Encryption` and `AES_Decryption` can be found within `AesCryptoModule` namespace.
+
+You might either extract everything from the namespace:
+
+```cpp
+using namespace AesCryptoModule;
+```
+
+Or just rename the namespace to a shorter identifier:
+
+```cpp
+namespace AES = AesCryptoModule;
+```
+
+If you want to use the available test vectors within `aes-test.hpp`, include the header:
+
+```cpp
+#include "aes-test.hpp"
+```
+
+Test vectors can be found within the namespace `AESTest`, test vectors include:
+
+### Run AES-ECB[128,192,256] tests
+
+this will execute AES-ECB mode in all AES key sizes.
+
+```cpp
+run_AES_ECB_test();
+```
+
+execute AES-CBC mode...
+
+```cpp
+run_AES_CBC_test();
+```
+
+AES-CTR mode...
+
+```cpp
+run_AES_CTR_test();
+```
+
+AES-OFB mode...
+
+```cpp
+run_AES_OFB_test();
+```
+
+AES-CFB mode...
+
+```cpp
+run_AES_CFB_test();
+```
+
+Or you can just run all of them...
+
+```cpp
+runGlobal();
+```
+
+
+If you do not care about test vectors, but you want to handle encryption and decryption by yourself, then you do not need to include `aes-test.hpp` header, but only include `aes.hpp` header.
+
+Let's see how to encrypt a message using AES-ECB mode in various key sizes:
+
+```cpp
+#include "aes.hpp"
+
+int main(int argc, char **argv) {
+    
+    return 0;
+}
 
 ```
 
-### Test Vectors
 
 
+## Code Security
 
-## Key Classes and Functions
 
-## Modes Of Operatios
-
-### `AesCryptoModule::ModeOfOperation::ECB_Mode`
-Handles ECB(Electronic-Code-Book) mode of operation.
-
-### `AesCryptoModule::ModeOfOperation::CBC_Mode`
-Handles CBC(Cipher-Block-Chaining) mode of operation.
-
-### `AesCryptoModule::ModeOfOperation::OFB_Mode`
-Handles OFB(Output-Feedback) mode of operation.
-
-### `AesCryptoModule::ModeOfOperation::CFB_Mode`
-Handles CFB(Cipher-Feedback) mode of operation.
-
-### `AesCryptoModule::ModeOfOperation::CTR_Mode`
-Handles CTR(Counter) mode of operation.
-
-## [AES](https://en.wikipedia.org/wiki/Advanced_Encryption_Standard) Encryption/Decryption
-
-### `AesCryptoModule::AES_Encryption`
-Handles [AES](https://en.wikipedia.org/wiki/Advanced_Encryption_Standard) encryption for a specified key size (`AES128KS`, `AES192KS` or `AES256KS`).
-
-### `AesCryptoModule::AES_Decryption`
-Handles [AES](https://en.wikipedia.org/wiki/Advanced_Encryption_Standard) decryption for a specified key size.
-
-### `AESUtils`
-Utility class for AES-specific operations:
-- S-Box generation.
-- Rijndael MixColumns and InvMixColumns constants.
-- Secure key generation.
-
-### `Test::CSPRNG`
-A cryptographically secure pseudo-random number generator for secure key generation.
-
----
 
 ## Limitations
 
