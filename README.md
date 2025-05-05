@@ -773,22 +773,154 @@ runGlobal();
 
 If you do not care about test vectors, but you want to handle encryption and decryption by yourself, then you do not need to include `aes-test.hpp` header, but only include `aes.hpp` header.
 
-Let's see how to encrypt a message using AES-ECB mode in various key sizes:
+Let's see how to encrypt a message using AES-128-ECB:
+
+
+Include require headers and define main function structure:
 
 ```cpp
 #include "aes.hpp"
+#include <iostream> // for output stream
+#include <iomanip> // for hex output
 
-int main(int argc, char **argv) {
-    
+int main(int argc, char** argv)
+{
+    try{
+        // code goes here...
+    }catch(const std::exception& e) {
+        std::cout << "Error: " << e.what() << "\n";
+        return 1; // return error
+    }
+  return 0;
+}
+
+```
+
+Define required data(message, key, etc...)
+
+```cpp
+        const uint8_t AES_KEY_SIZE    = 128;                                            // for AES-128 bits
+        const AES::AESMode AES_MODE   = AES::AESMode::ECB;                              // define the mode of operation
+        const std::string message     = "some random message to encrypt!";              // this is the message to encrypt
+        const std::string seckey      = AES::AESUtils::genSecKeyBlock(AES_KEY_SIZE);    // this is the key for AES encryption/decryption
+```
+
+Construct AES_Encryption and AES_Decryption objects
+
+```cpp
+        AES::AES_Encryption<AES_KEY_SIZE, AES_MODE> Encryption; // instantiate AES encryption object
+        AES::AES_Decryption<AES_KEY_SIZE, AES_MODE> Decryption; // instantiate AES decryption object
+```
+
+Ready to encrypt, encrypt message with key
+
+```cpp
+        const std::vector<byte> ENCRYPTED_DATA = Encryption.apply(message, seckey);                  // encrypt plaintext
+```
+
+Recover ciphertext with the same key
+
+```cpp
+        const std::vector<byte> DECRYPTED_DATA = Decryption.apply(ENCRYPTED_DATA_STR, seckey);       // recover ciphertext
+```
+
+Print result...
+
+```cpp
+        std::cout << "Encrypted Data(Hex): ";
+        for(const byte b: ENCRYPTED_DATA) std::cout << std::hex << std::setw(2) << std::setfill('0') << (int)b << " ";
+
+        std::cout << std::endl;
+
+        std::cout << "Decrypted Data(Hex): ";
+        for(const byte b: DECRYPTED_DATA) std::cout << std::hex << std::setw(2) << std::setfill('0') << (int)b << " ";
+
+        std::cout << std::endl;
+```
+
+Full code:
+
+```cpp
+
+#include "aes.hpp"  
+#include <iomanip> 
+#include <iostream>  
+
+namespace AES = AesCryptoModule;
+
+int main(int argc, char **argv)
+{
+    try
+    {       
+        const uint8_t AES_KEY_SIZE    = 128;                                            // for AES-128 bits
+        const AES::AESMode AES_MODE   = AES::AESMode::ECB;                              // define the mode of operation
+        const std::string message     = "some random message to encrypt!";              // this is the message to encrypt
+        const std::string seckey      = AES::AESUtils::genSecKeyBlock(AES_KEY_SIZE);    // this is the key for AES encryption/decryption
+
+        AES::AES_Encryption<AES_KEY_SIZE, AES_MODE> Encryption; // instantiate AES encryption object
+        AES::AES_Decryption<AES_KEY_SIZE, AES_MODE> Decryption; // instantiate AES decryption object
+
+        const std::vector<byte> ENCRYPTED_DATA = Encryption.apply(message, seckey);                  // encrypt plaintext
+
+        const std::string ENCRYPTED_DATA_STR(ENCRYPTED_DATA.begin(), ENCRYPTED_DATA.end());          // need to convert to std::string for decryption
+
+        const std::vector<byte> DECRYPTED_DATA = Decryption.apply(ENCRYPTED_DATA_STR, seckey);       // recover ciphertext
+
+        // ------- PRINT RESULT ---------
+
+        std::cout << "Encrypted Data(Hex): ";
+        for(const byte b: ENCRYPTED_DATA) std::cout << std::hex << std::setw(2) << std::setfill('0') << (int)b << " ";
+
+        std::cout << std::endl;
+
+        std::cout << "Decrypted Data(Hex): ";
+        for(const byte b: DECRYPTED_DATA) std::cout << std::hex << std::setw(2) << std::setfill('0') << (int)b << " ";
+
+        std::cout << std::endl;
+
+    }
+    catch (const std::exception &e)
+    {
+        std::cerr << "Error: " << e.what() << std::endl;
+        return 1;
+    }
     return 0;
 }
 
 ```
 
+To Use another mode of operation or another key size, just update `AES_MODE` and `AES_KEY_SIZE` variables.
+
+use CBC mode...
+
+```cpp
+const AES::AESMode AES_MODE = AES::AESMode::ECB; // ECB mode AKA mode-less mode
+const AES::AESMode AES_MODE = AES::AESMode::CBC; // Cipher-Block-Chaninig mode, this requires initialization of IV
+const AES::AESMode AES_MODE = AES::AESMode::CTR; // Counter mode, requires nonce, here nonce is IV
+const AES::AESMode AES_MODE = AES::AESMode::OFB; // Output Feedback mode, requires IV
+const AES::AESMode AES_MODE = AES::AESMode::CFB; // Cipher Feedback mode, require IV
+```
+
+
+To use CBC, CTR, or other modes that require IV, just define another variable called IV or however you like, and call AESUtils::GenIvBlock() function to generate the IV.
+
+```cpp
+const std::vector<byte> IV = AES::AESUtils::GenIvBlock(16); // most of the modes like CBC, CTR, OFB, etc.. require the IV to be 16 bytes long.
+```
+
+Now just store the value of the IV within Encryption and Decryption objects
+
+```cpp
+Encryption.iv = IV;
+Decryption.iv = IV;
+```
+
+that's it... everything stays the same...
 
 
 ## Code Security
 
+I need to specify that this code is not secure, and is not efficient, use it for educational purposes only.
 
 
 ## Limitations
