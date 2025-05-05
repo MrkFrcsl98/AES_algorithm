@@ -1,7 +1,7 @@
 #pragma once
 #include <algorithm> // used for std::transform, etc...
 #include <array>     // for fixed size arrays
-#include <chrono>   
+#include <chrono>
 #include <cstring>     // for something...
 #include <ctime>       // for CSPRNG state value(seed)
 #include <stdexcept>   // exceptions
@@ -685,7 +685,6 @@ class CTR_Mode
     CTR_Mode &operator=(CTR_Mode &&) noexcept = delete;
     ~CTR_Mode() noexcept {};
 
-
     template <typename AesEngineT> inline static void Encryption(AesEngineT *core, std::vector<byte> &out)
     {
         const size_t blocksize{core->parameter.data.size()};
@@ -775,8 +774,8 @@ class CFB_Mode
 } // namespace ModeOfOperation
 
 template <uint16_t AES_KEY_SIZE, AESMode Mode>
-class AES_Encryption<AES_KEY_SIZE, Mode, typename std::enable_if<IsValidModeOfOperation<Mode>::value>::type, typename std::enable_if<IsValidBlockSize<AES_KEY_SIZE>::value>::type>
-    : public AesEngine<AES_KEY_SIZE>
+class AES_Encryption<AES_KEY_SIZE, Mode, typename std::enable_if<IsValidModeOfOperation<Mode>::value>::type,
+                     typename std::enable_if<IsValidBlockSize<AES_KEY_SIZE>::value>::type> : public AesEngine<AES_KEY_SIZE>
 {
     AESMode M = Mode;
 
@@ -803,7 +802,7 @@ class AES_Encryption<AES_KEY_SIZE, Mode, typename std::enable_if<IsValidModeOfOp
 
     ~AES_Encryption() noexcept override = default;
 
-    void _transformation(std::vector<byte> &out)
+    __attribute__((cold)) void _transformation(std::vector<byte> &out)
     {
         if (Mode == AESMode::CTR)
             ModeOfOperation::CTR_Mode::Encryption(this, out);
@@ -819,14 +818,14 @@ class AES_Encryption<AES_KEY_SIZE, Mode, typename std::enable_if<IsValidModeOfOp
             throw std::invalid_argument("invalid AES mode of operation, valid modes are(ECB, OFB, CBC, CTR, ECB)");
     };
 
-    void _generateAesConstants() noexcept override
+    __attribute__((cold)) void _generateAesConstants() noexcept override
     {
         AESUtils::createSBox(AESUtils::SBox);
         AESUtils::createRCon(AESUtils::RCon);
         AESUtils::createMixCols(AESUtils::MixCols);
     }
 
-    void _execRound(const uint8_t r) override
+    __attribute__((hot)) void _execRound(const uint8_t r) override
     {
         this->_subBytes();
         this->_shiftRows();
@@ -834,14 +833,14 @@ class AES_Encryption<AES_KEY_SIZE, Mode, typename std::enable_if<IsValidModeOfOp
         this->_addRoundKey(r);
     }
 
-    void _finalRound(const uint8_t r) override
+    __attribute__((cold)) void _finalRound(const uint8_t r) override
     {
         this->_subBytes();
         this->_shiftRows();
         this->_addRoundKey(r);
     }
 
-    inline void _initMainRounds() override
+    __attribute__((cold)) inline void _initMainRounds() override
     {
         for (uint8_t r = 1; r < AesEngine<AES_KEY_SIZE>::Nr; ++r)
         {
@@ -850,8 +849,8 @@ class AES_Encryption<AES_KEY_SIZE, Mode, typename std::enable_if<IsValidModeOfOp
     }
 };
 template <uint16_t AES_KEY_SIZE, AESMode Mode>
-class AES_Decryption<AES_KEY_SIZE, Mode, typename std::enable_if<IsValidModeOfOperation<Mode>::value>::type, typename std::enable_if<IsValidBlockSize<AES_KEY_SIZE>::value>::type>
-    : public AesEngine<AES_KEY_SIZE>
+class AES_Decryption<AES_KEY_SIZE, Mode, typename std::enable_if<IsValidModeOfOperation<Mode>::value>::type,
+                     typename std::enable_if<IsValidBlockSize<AES_KEY_SIZE>::value>::type> : public AesEngine<AES_KEY_SIZE>
 {
     AESMode M = Mode;
 
@@ -879,7 +878,7 @@ class AES_Decryption<AES_KEY_SIZE, Mode, typename std::enable_if<IsValidModeOfOp
 
     ~AES_Decryption() noexcept override = default;
 
-    void _transformation(std::vector<byte> &out)
+    __attribute__((cold)) void _transformation(std::vector<byte> &out)
     {
         if (Mode == AESMode::CTR)
             ModeOfOperation::CTR_Mode::Decryption(this, out);
@@ -895,14 +894,14 @@ class AES_Decryption<AES_KEY_SIZE, Mode, typename std::enable_if<IsValidModeOfOp
             throw std::invalid_argument("invalid AES mode of operation, valid modes are(ECB, OFB, CBC, CTR, ECB)");
     };
 
-    void _generateAesConstants() noexcept override
+    __attribute__((cold)) void _generateAesConstants() noexcept override
     {
         AESUtils::createInvSBox(AESUtils::SBox, AESUtils::InvSBox);
         AESUtils::createRCon(AESUtils::RCon);
         AESUtils::createInvMixCols(AESUtils::InvMixCols);
     }
 
-    void _execRound(const uint8_t r) override
+    __attribute__((hot)) void _execRound(const uint8_t r) override
     {
         this->_invShiftRows();
         this->_invSubBytes();
@@ -910,14 +909,14 @@ class AES_Decryption<AES_KEY_SIZE, Mode, typename std::enable_if<IsValidModeOfOp
         this->_invMixColumns();
     }
 
-    void _finalRound(const uint8_t r) override
+    __attribute__((cold)) void _finalRound(const uint8_t r) override
     {
         this->_invShiftRows();
         this->_invSubBytes();
         this->_addRoundKey(r);
     }
 
-    inline void _initMainRounds() override
+    __attribute__((cold)) inline void _initMainRounds() override
     {
         for (uint8_t round = AesEngine<AES_KEY_SIZE>::Nr - 1; round > 0; --round)
         {
