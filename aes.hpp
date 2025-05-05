@@ -1,15 +1,11 @@
 #pragma once
 #include <algorithm> // used for std::transform, etc...
 #include <array>     // for fixed size arrays
-#include <cassert>
-#include <chrono>      // for timer interval
+#include <chrono>   
 #include <cstring>     // for something...
 #include <ctime>       // for CSPRNG state value(seed)
-#include <iomanip>     // needed to print as hex format
-#include <iostream>    // required for the CSPRNG function
 #include <stdexcept>   // exceptions
 #include <string>      // std::string
-#include <thread>      // for std::this_thread::sleep_for(...), std::thread().join()...
 #include <type_traits> // for some type trait implementation
 #include <vector>      // dynamic memory allocation sequence
 
@@ -240,9 +236,9 @@ struct AesParameters
     std::vector<uint16_t> key;
 };
 
-template <uint16_t BlockSz> struct IsValidBlockSize
+template <uint16_t AES_KEY_SIZE> struct IsValidBlockSize
 {
-    static constexpr bool value = (BlockSz == AES128KS || BlockSz == AES192KS || BlockSz == AES256KS);
+    static constexpr bool value = (AES_KEY_SIZE == AES128KS || AES_KEY_SIZE == AES192KS || AES_KEY_SIZE == AES256KS);
 };
 
 enum AESMode
@@ -261,14 +257,14 @@ template <AESMode MODE> struct IsValidModeOfOperation
         (MODE == AESMode::ECB || MODE == AESMode::CBC || MODE == AESMode::CFB || MODE == AESMode::OFB || MODE == AESMode::CTR || MODE == AESMode::GCM);
 };
 
-template <uint16_t BlockSz, AESMode Mode, typename EnableM = void, typename Enable = void> class AES_Encryption;
-template <uint16_t BlockSz, AESMode Mode, typename EnableM = void, typename Enable = void> class AES_Decryption;
-template <uint16_t BlockSz, typename Enable = void> class AesEngine;
+template <uint16_t AES_KEY_SIZE, AESMode Mode, typename EnableM = void, typename Enable = void> class AES_Encryption;
+template <uint16_t AES_KEY_SIZE, AESMode Mode, typename EnableM = void, typename Enable = void> class AES_Decryption;
+template <uint16_t AES_KEY_SIZE, typename Enable = void> class AesEngine;
 
 using RoundKeysT = std::vector<std::vector<byte>>;
 using StateMatrixT = RoundKeysT;
 
-template <uint16_t BlockSz> class AesEngine<BlockSz, typename std::enable_if<IsValidBlockSize<BlockSz>::value>::type>
+template <uint16_t AES_KEY_SIZE> class AesEngine<AES_KEY_SIZE, typename std::enable_if<IsValidBlockSize<AES_KEY_SIZE>::value>::type>
 {
   protected:
     size_t iSz;
@@ -277,8 +273,8 @@ template <uint16_t BlockSz> class AesEngine<BlockSz, typename std::enable_if<IsV
     StateMatrixT state_matrix;
 
   public:
-    static constexpr byte Nk = BlockSz / 32;
-    static constexpr byte Nr = BlockSz == AES128KS ? AES128_ROUNDS : (BlockSz == AES192KS ? AES192_ROUNDS : AES256_ROUNDS);
+    static constexpr byte Nk = AES_KEY_SIZE / 32;
+    static constexpr byte Nr = AES_KEY_SIZE == AES128KS ? AES128_ROUNDS : (AES_KEY_SIZE == AES192KS ? AES192_ROUNDS : AES256_ROUNDS);
     struct AesParameters parameter;
     AesEngine() noexcept = default;
     AesEngine(const AesEngine &) noexcept = delete;
@@ -535,9 +531,9 @@ template <uint16_t BlockSz> class AesEngine<BlockSz, typename std::enable_if<IsV
 template <AESMode Mode> struct AESModeHandler;
 template <> struct AESModeHandler<AESMode::ECB>
 {
-    template <uint16_t BlockSz> static std::vector<byte> apply(const std::string &in, const std::string &key)
+    template <uint16_t AES_KEY_SIZE> static std::vector<byte> apply(const std::string &in, const std::string &key)
     {
-        AES_Encryption<BlockSz, AESMode::ECB> engine;
+        AES_Encryption<AES_KEY_SIZE, AESMode::ECB> engine;
         return engine.apply(in, key);
     }
 };
@@ -581,7 +577,7 @@ class ECB_Mode
 
     template <typename AesEngineT> __attribute__((hot, always_inline)) inline static void Encryption(AesEngineT *core, std::vector<byte> &out)
     {
-        for (uint8_t i = 0; i < core->parameter.data.size(); i += AES_BLOCK_SIZE)
+        for (uint64_t i = 0; i < core->parameter.data.size(); i += AES_BLOCK_SIZE)
         {
             std::string block(core->parameter.data.begin() + i, core->parameter.data.begin() + i + AES_BLOCK_SIZE);
 
@@ -601,7 +597,7 @@ class ECB_Mode
 
     template <typename AesEngineT> __attribute__((hot, always_inline)) inline static void Decryption(AesEngineT *core, std::vector<byte> &out)
     {
-        for (uint8_t i = 0; i < core->parameter.data.size(); i += AES_BLOCK_SIZE)
+        for (uint64_t i = 0; i < core->parameter.data.size(); i += AES_BLOCK_SIZE)
         {
             std::string block(core->parameter.data.begin() + i, core->parameter.data.begin() + i + AES_BLOCK_SIZE);
             if (!isValidBlock(block)) [[unlikely]]
@@ -631,7 +627,7 @@ class CBC_Mode
 
     template <typename AesEngineT> static void Encryption(AesEngineT *core, std::vector<byte> &out)
     {
-        for (uint8_t i = 0; i < core->parameter.data.size(); i += AES_BLOCK_SIZE)
+        for (uint64_t i = 0; i < core->parameter.data.size(); i += AES_BLOCK_SIZE)
         {
             std::string block(core->parameter.data.begin() + i, core->parameter.data.begin() + i + AES_BLOCK_SIZE);
             if (block.size() != AES_BLOCK_SIZE) [[unlikely]]
@@ -655,7 +651,7 @@ class CBC_Mode
 
     template <typename AesEngineT> static void Decryption(AesEngineT *core, std::vector<byte> &out)
     {
-        for (uint8_t i = 0; i < core->parameter.data.size(); i += AES_BLOCK_SIZE)
+        for (uint64_t i = 0; i < core->parameter.data.size(); i += AES_BLOCK_SIZE)
         {
             std::string block(core->parameter.data.begin() + i, core->parameter.data.begin() + i + AES_BLOCK_SIZE);
             if (block.size() != AES_BLOCK_SIZE) [[unlikely]]
@@ -789,9 +785,9 @@ class CFB_Mode
 };
 } // namespace ModeOfOperation
 
-template <uint16_t BlockSz, AESMode Mode>
-class AES_Encryption<BlockSz, Mode, typename std::enable_if<IsValidModeOfOperation<Mode>::value>::type, typename std::enable_if<IsValidBlockSize<BlockSz>::value>::type>
-    : public AesEngine<BlockSz>
+template <uint16_t AES_KEY_SIZE, AESMode Mode>
+class AES_Encryption<AES_KEY_SIZE, Mode, typename std::enable_if<IsValidModeOfOperation<Mode>::value>::type, typename std::enable_if<IsValidBlockSize<AES_KEY_SIZE>::value>::type>
+    : public AesEngine<AES_KEY_SIZE>
 {
     AESMode M = Mode;
 
@@ -858,15 +854,15 @@ class AES_Encryption<BlockSz, Mode, typename std::enable_if<IsValidModeOfOperati
 
     inline void _initMainRounds() override
     {
-        for (uint8_t r = 1; r < AesEngine<BlockSz>::Nr; ++r)
+        for (uint8_t r = 1; r < AesEngine<AES_KEY_SIZE>::Nr; ++r)
         {
             this->_execRound(r);
         }
     }
 };
-template <uint16_t BlockSz, AESMode Mode>
-class AES_Decryption<BlockSz, Mode, typename std::enable_if<IsValidModeOfOperation<Mode>::value>::type, typename std::enable_if<IsValidBlockSize<BlockSz>::value>::type>
-    : public AesEngine<BlockSz>
+template <uint16_t AES_KEY_SIZE, AESMode Mode>
+class AES_Decryption<AES_KEY_SIZE, Mode, typename std::enable_if<IsValidModeOfOperation<Mode>::value>::type, typename std::enable_if<IsValidBlockSize<AES_KEY_SIZE>::value>::type>
+    : public AesEngine<AES_KEY_SIZE>
 {
     AESMode M = Mode;
 
@@ -934,12 +930,9 @@ class AES_Decryption<BlockSz, Mode, typename std::enable_if<IsValidModeOfOperati
 
     inline void _initMainRounds() override
     {
-        for (uint8_t round = AesEngine<BlockSz>::Nr - 1; round > 0; --round)
+        for (uint8_t round = AesEngine<AES_KEY_SIZE>::Nr - 1; round > 0; --round)
         {
-            this->_invShiftRows();
-            this->_invSubBytes();
-            this->_addRoundKey(round);
-            this->_invMixColumns();
+            this->_execRound(round);
         }
     }
 };
