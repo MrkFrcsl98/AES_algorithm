@@ -480,7 +480,7 @@ template <uint16_t AES_KEY_SIZE> class AesEngine<AES_KEY_SIZE, typename std::ena
         }
     }
 
-    __attribute__((hot, nothrow)) inline void _setOutput(std::vector<byte> &out) noexcept
+    __attribute__((hot, nothrow)) inline void _setOutput(std::array<byte, AES_BLOCK_SIZE> &out) noexcept
     {
         for (uint8_t i = 0; i < 4; ++i)
         {
@@ -585,7 +585,7 @@ class ECB_Mode
             {
                 throw std::invalid_argument("Invalid block size for ECB encryption");
             }
-            std::vector<byte> tmpOut(AES_BLOCK_SIZE);
+            std::array<byte, AES_BLOCK_SIZE> tmpOut;
             core->_initStateMatrix(block);
             core->_addRoundKey(0);
             core->_initMainRounds();
@@ -604,7 +604,7 @@ class ECB_Mode
             {
                 throw std::invalid_argument("Invalid block size for ECB decryption");
             }
-            std::vector<byte> tmpOut(AES_BLOCK_SIZE);
+            std::array<byte, AES_BLOCK_SIZE> tmpOut;
             core->_initStateMatrix(block);
             core->_addRoundKey(AesEngineT::Nr);
             core->_initMainRounds();
@@ -638,14 +638,14 @@ class CBC_Mode
             {
                 block[i] ^= core->iv[i];
             }
-            std::vector<byte> tmpOut(AES_BLOCK_SIZE);
+            std::array<byte, AES_BLOCK_SIZE> tmpOut;
             core->_initStateMatrix(block);
             core->_addRoundKey(0);
             core->_initMainRounds();
             core->_finalRound(AesEngineT::Nr);
             core->_setOutput(tmpOut);
             out.insert(out.end(), tmpOut.begin(), tmpOut.end());
-            core->iv = std::move(tmpOut);
+            core->iv.assign(tmpOut.begin(), tmpOut.end());
         }
     }
 
@@ -658,7 +658,7 @@ class CBC_Mode
             {
                 throw std::invalid_argument("Invalid block size for CBC decryption");
             }
-            std::vector<byte> tmpOut(AES_BLOCK_SIZE);
+            std::array<byte, AES_BLOCK_SIZE> tmpOut;
             core->_initStateMatrix(block);
             core->_addRoundKey(AesEngineT::Nr);
             core->_initMainRounds();
@@ -685,17 +685,6 @@ class CTR_Mode
     CTR_Mode &operator=(CTR_Mode &&) noexcept = delete;
     ~CTR_Mode() noexcept {};
 
-    static std::vector<byte> join(const std::vector<byte> &nonce, uint64_t counter)
-    {
-        const size_t nonce_size = nonce.size();
-        if (nonce_size > AES_BLOCK_SIZE)
-            throw std::invalid_argument("Nonce size exceeds 16 bytes!");
-        std::vector<byte> ksbuffer(AES_BLOCK_SIZE, 0);
-        std::copy(nonce.begin(), nonce.end(), ksbuffer.begin());
-        for (size_t i = 0; i < 8 && (nonce_size + i) < AES_BLOCK_SIZE; ++i)
-            ksbuffer[nonce_size + i] = (counter >> (8 * (7 - i))) & 0xFF;
-        return ksbuffer;
-    }
 
     template <typename AesEngineT> inline static void Encryption(AesEngineT *core, std::vector<byte> &out)
     {
