@@ -172,7 +172,7 @@ __attribute__((cold, nothrow)) inline void _pkcs7Dettach(std::vector<uint8_t> &d
 
 ### Mode Of Operation
 AES splits data into 16 byte blocks, each block is then processes by any mode of operation, by default AES employs `ECB`(Electronic-CodeBook) Mode, which 
-is the most simple but also weak mode of operation.
+is the most simple but also weak mode of operation, actually, this mode is also called `mode-less` mode, as it is actually just AES implementation.
 The mode of operation specifies how blocks of data are processed, depending on the mode of operation, blocks can be processed in a stream-like manner or fixed-block sizes.
 In **ECB** block cipher mode of operation, each block of plaintext is encrypted independently, if a block of plaintext is similar to other blocks, ECB mode
 will produce the same ciphertext block, this will lead to pattern recognition or replay attacks due to lack of `diffusion` in the cipher mode.
@@ -348,6 +348,15 @@ BEGIN
         RETURN plaintext
 END
 ```
+
+
+`ECB` mode does not require any additional authentication data(**AAD**) unlike `CBC` which requires an **IV**(initialization-vector), the IV must be of 16 bytes in size and used only once per session.
+`ECB` mode and `CBC` mode do not provide integrity and authenticity of data, for this purpose there are other modes.
+Other modes like `CTR`, also require an additional value, called the counter, which is usually set to 0, and incremented for each round.
+In `CTR` mode the IV is actually called `nonce`, the counter and the nonce are combined and encrypted using AES-ECB to generate a keystream, this keystream will then be xored with the plaintext to produce the first ciphertext block. 
+Decryption in `CTR` is identical to encryption, instead of using the plaintext, it xor's the ciphertext with the keystream to recover the plaintext.
+None of these modes provide authenticity and integrity of data, if you want authenticity and inegrity of data being processed, you will use a mode called `GCM`(gallois-counter) mode.
+`GCM` provides both authenticity and integrity, using 
 
 
 ## How It Works
