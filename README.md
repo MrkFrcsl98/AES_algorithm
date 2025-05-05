@@ -948,6 +948,17 @@ Decryption.iv = IV;
 that's it... everything stays the same...
 
 
+### Here are some screenshots of the results i got on my machine, running all modes of operation and all key sizes...
+
+Result for AES-128[ECB, CBC, CTR, OFB, CFB]
+![image](https://github.com/MrkFrcsl98/AES_algorithm/blob/main/rsc/1wqeeqreewqrewrewrewr.png)
+
+Result for AES-192[ECB, CBC, CTR, OFB, CFB]
+![image](https://github.com/MrkFrcsl98/AES_algorithm/blob/main/rsc/2rfretertretreterte.png)
+
+Result for AES-256[ECB, CBC, CTR, OFB, CFB]
+![image](https://github.com/MrkFrcsl98/AES_algorithm/blob/main/rsc/3rreterregrgrtgry.png)
+
 ## Code Security
 
 I need to specify that this code is not secure, and is not efficient, use it for educational purposes only.
