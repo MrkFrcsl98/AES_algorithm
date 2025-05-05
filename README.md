@@ -799,43 +799,43 @@ int main(int argc, char** argv)
 Define required data(message, key, etc...)
 
 ```cpp
-        const uint8_t AES_KEY_SIZE    = 128;                                            // for AES-128 bits
-        const AES::AESMode AES_MODE   = AES::AESMode::ECB;                              // define the mode of operation
-        const std::string message     = "some random message to encrypt!";              // this is the message to encrypt
-        const std::string seckey      = AES::AESUtils::genSecKeyBlock(AES_KEY_SIZE);    // this is the key for AES encryption/decryption
+const uint8_t AES_KEY_SIZE    = 128;                                            // for AES-128 bits
+const AES::AESMode AES_MODE   = AES::AESMode::ECB;                              // define the mode of operation
+const std::string message     = "some random message to encrypt!";              // this is the message to encrypt
+const std::string seckey      = AES::AESUtils::genSecKeyBlock(AES_KEY_SIZE);    // this is the key for AES encryption/decryption
 ```
 
 Construct AES_Encryption and AES_Decryption objects
 
 ```cpp
-        AES::AES_Encryption<AES_KEY_SIZE, AES_MODE> Encryption; // instantiate AES encryption object
-        AES::AES_Decryption<AES_KEY_SIZE, AES_MODE> Decryption; // instantiate AES decryption object
+AES::AES_Encryption<AES_KEY_SIZE, AES_MODE> Encryption; // instantiate AES encryption object
+AES::AES_Decryption<AES_KEY_SIZE, AES_MODE> Decryption; // instantiate AES decryption object
 ```
 
 Ready to encrypt, encrypt message with key
 
 ```cpp
-        const std::vector<byte> ENCRYPTED_DATA = Encryption.apply(message, seckey);                  // encrypt plaintext
+const std::vector<byte> ENCRYPTED_DATA = Encryption.apply(message, seckey);                  // encrypt plaintext
 ```
 
 Recover ciphertext with the same key
 
 ```cpp
-        const std::vector<byte> DECRYPTED_DATA = Decryption.apply(ENCRYPTED_DATA_STR, seckey);       // recover ciphertext
+const std::vector<byte> DECRYPTED_DATA = Decryption.apply(ENCRYPTED_DATA_STR, seckey);       // recover ciphertext
 ```
 
 Print result...
 
 ```cpp
-        std::cout << "Encrypted Data(Hex): ";
-        for(const byte b: ENCRYPTED_DATA) std::cout << std::hex << std::setw(2) << std::setfill('0') << (int)b << " ";
+ std::cout << "Encrypted Data(Hex): ";
+for(const byte b: ENCRYPTED_DATA) std::cout << std::hex << std::setw(2) << std::setfill('0') << (int)b << " ";
 
-        std::cout << std::endl;
+std::cout << std::endl;
 
-        std::cout << "Decrypted Data(Hex): ";
-        for(const byte b: DECRYPTED_DATA) std::cout << std::hex << std::setw(2) << std::setfill('0') << (int)b << " ";
+std::cout << "Decrypted Data(Hex): ";
+for(const byte b: DECRYPTED_DATA) std::cout << std::hex << std::setw(2) << std::setfill('0') << (int)b << " ";
 
-        std::cout << std::endl;
+std::cout << std::endl;
 ```
 
 Full code:
