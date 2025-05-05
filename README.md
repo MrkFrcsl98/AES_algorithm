@@ -889,6 +889,25 @@ int main(int argc, char **argv)
 
 ```
 
+The above code can be further factorized and simplified to...
+
+```cpp
+
+#include "aes.hpp"
+namespace AES = AesCryptoModule;
+int main()
+{
+    const std::string seckey = AES::AESUtils::genSecKeyBlock(128); // this is the key for AES encryption/decryption
+    AES::AES_Encryption<128, AES::AESMode::ECB> Encryption;        // instantiate AES encryption object
+    AES::AES_Decryption<128, AES::AESMode::ECB> Decryption;        // instantiate AES decryption object
+    const std::vector<byte> ENCRYPTED_DATA = Encryption.apply("some random message to encrypt!", seckey);                         // encrypt plaintext
+    const std::vector<byte> DECRYPTED_DATA = Decryption.apply(std::string(ENCRYPTED_DATA.begin(), ENCRYPTED_DATA.end()), seckey); // recover ciphertext
+    return 0;
+}
+
+```
+
+
 To Use another mode of operation or another key size, just update `AES_MODE` and `AES_KEY_SIZE` variables.
 
 use CBC mode...
