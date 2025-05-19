@@ -531,10 +531,10 @@ template <uint16_t AES_KEY_SIZE> class AesEngine<AES_KEY_SIZE, typename std::ena
 template <AESMode Mode> struct AESModeHandler;
 template <> struct AESModeHandler<AESMode::ECB>
 {
-    template <uint16_t AES_KEY_SIZE> static std::vector<byte> apply(const std::string &in, const std::string &key)
+    template <uint16_t AES_KEY_SIZE> static std::vector<byte> convert(const std::string &in, const std::string &key)
     {
         AES_Encryption<AES_KEY_SIZE, AESMode::ECB> engine;
-        return engine.apply(in, key);
+        return engine.convert(in, key);
     }
 };
 
@@ -556,7 +556,7 @@ class ModeCipherSpecs
     {
         std::string input(ivOrCounter.begin(), ivOrCounter.end());
         const std::string key(core->parameter.key.begin(), core->parameter.key.end());
-        return AESModeHandler<AESMode::ECB>::apply<128>(input, key);
+        return AESModeHandler<AESMode::ECB>::convert<128>(input, key);
     }
 };
 
@@ -788,7 +788,7 @@ class AES_Encryption<AES_KEY_SIZE, Mode, typename std::enable_if<IsValidModeOfOp
     AES_Encryption(const AES_Encryption &) noexcept = delete;
     AES_Encryption(AES_Encryption &&) noexcept = delete;
 
-    __attribute__((cold)) const std::vector<byte> apply(const std::string &input, const std::string &key)
+    __attribute__((cold)) const std::vector<byte> convert(const std::string &input, const std::string &key)
     {
         std::vector<byte> result;
         this->_validateParameters(input, key);
@@ -798,6 +798,11 @@ class AES_Encryption<AES_KEY_SIZE, Mode, typename std::enable_if<IsValidModeOfOp
         this->_keySchedule();
         this->_transformation(result);
         return result;
+    };
+
+    __attribute__((cold)) const std::vector<byte> convert(const std::vector<byte> &input, const std::string &key)
+    {
+        return this->convert(std::string(input.begin(), input.end()), std::move(key));
     };
 
     ~AES_Encryption() noexcept override = default;
@@ -863,7 +868,7 @@ class AES_Decryption<AES_KEY_SIZE, Mode, typename std::enable_if<IsValidModeOfOp
     AES_Decryption(const AES_Decryption &) noexcept = delete;
     AES_Decryption(AES_Decryption &&) noexcept = delete;
 
-    __attribute__((cold)) const std::vector<byte> apply(const std::string &input, const std::string &key)
+    __attribute__((cold)) const std::vector<byte> convert(const std::string &input, const std::string &key)
     {
         std::vector<byte> result;
         this->_validateParameters(input, key);
@@ -875,6 +880,11 @@ class AES_Decryption<AES_KEY_SIZE, Mode, typename std::enable_if<IsValidModeOfOp
         this->_pkcs7Dettach(result);
         return result;
     }
+
+     __attribute__((cold)) const std::vector<byte> convert(const std::vector<byte> &input, const std::string &key)
+    {
+        return this->convert(std::string(input.begin(), input.end()), std::move(key));
+    };
 
     ~AES_Decryption() noexcept override = default;
 
