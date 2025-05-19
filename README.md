@@ -826,13 +826,13 @@ AES::AES_Decryption<AES_KEY_SIZE, AES_MODE> Decryption; // instantiate AES decry
 Ready to encrypt, encrypt message with key
 
 ```cpp
-const std::vector<byte> ENCRYPTED_DATA = Encryption.apply(message, seckey);                  // encrypt plaintext
+const std::vector<byte> ENCRYPTED_DATA = Encryption.convert(message, seckey);                  // encrypt plaintext
 ```
 
 Recover ciphertext with the same key
 
 ```cpp
-const std::vector<byte> DECRYPTED_DATA = Decryption.apply(ENCRYPTED_DATA_STR, seckey);       // recover ciphertext
+const std::vector<byte> DECRYPTED_DATA = Decryption.convert(ENCRYPTED_DATA, seckey);       // recover ciphertext
 ```
 
 Print result...
@@ -853,11 +853,21 @@ Full code:
 
 ```cpp
 
+
 #include "aes.hpp"  
 #include <iomanip> 
 #include <iostream>  
 
 namespace AES = AesCryptoModule;
+
+// a function to print the result of the encryption operation...
+static bool isEqual(const std::vector<byte>& o1, const std::vector<byte>& o2) {
+    if(o1.size() != o2.size()) return false;
+    for(int i = 0; i < o1.size(); ++i) {
+       if(o1[i] != o2[i]) return false;   
+    }
+    return true;
+}
 
 int main(int argc, char **argv)
 {
@@ -871,23 +881,25 @@ int main(int argc, char **argv)
         AES::AES_Encryption<AES_KEY_SIZE, AES_MODE> Encryption; // instantiate AES encryption object
         AES::AES_Decryption<AES_KEY_SIZE, AES_MODE> Decryption; // instantiate AES decryption object
 
-        const std::vector<byte> ENCRYPTED_DATA = Encryption.apply(message, seckey);                  // encrypt plaintext
+        const std::vector<byte> ENCRYPTED_DATA = Encryption.convert(message, seckey);                  // encrypt plaintext
+        const std::vector<byte> DECRYPTED_DATA = Decryption.convert(ENCRYPTED_DATA, seckey);           // recover ciphertext
 
-        const std::string ENCRYPTED_DATA_STR(ENCRYPTED_DATA.begin(), ENCRYPTED_DATA.end());          // need to convert to std::string for decryption
+        // ------- PRINT RESULT: *OPTIONAL* ---------
 
-        const std::vector<byte> DECRYPTED_DATA = Decryption.apply(ENCRYPTED_DATA_STR, seckey);       // recover ciphertext
-
-        // ------- PRINT RESULT ---------
+        std::cout << "Original Data(Hex):  ";
+        for(const byte b: message) std::cout << std::hex << std::setw(2) << std::setfill('0') << (int)b << " ";
+        std::cout << std::endl;
 
         std::cout << "Encrypted Data(Hex): ";
         for(const byte b: ENCRYPTED_DATA) std::cout << std::hex << std::setw(2) << std::setfill('0') << (int)b << " ";
-
         std::cout << std::endl;
 
         std::cout << "Decrypted Data(Hex): ";
         for(const byte b: DECRYPTED_DATA) std::cout << std::hex << std::setw(2) << std::setfill('0') << (int)b << " ";
-
         std::cout << std::endl;
+
+        // Verify result...
+        std::cout << "result status: " << std::boolalpha << isEqual(DECRYPTED_DATA, std::vector<byte>(message.begin(), message.end())) << "\n";
 
     }
     catch (const std::exception &e)
@@ -897,6 +909,7 @@ int main(int argc, char **argv)
     }
     return 0;
 }
+
 
 ```
 
@@ -911,8 +924,8 @@ int main()
     const std::string seckey = AES::AESUtils::genSecKeyBlock(128); // this is the key for AES encryption/decryption
     AES::AES_Encryption<128, AES::AESMode::ECB> Encryption;        // instantiate AES encryption object
     AES::AES_Decryption<128, AES::AESMode::ECB> Decryption;        // instantiate AES decryption object
-    const std::vector<byte> ENCRYPTED_DATA = Encryption.apply("some random message to encrypt!", seckey);                         // encrypt plaintext
-    const std::vector<byte> DECRYPTED_DATA = Decryption.apply(std::string(ENCRYPTED_DATA.begin(), ENCRYPTED_DATA.end()), seckey); // recover ciphertext
+    const std::vector<byte> ENCRYPTED_DATA = Encryption.convert("some random message to encrypt!", seckey);                         // encrypt plaintext
+    const std::vector<byte> DECRYPTED_DATA = Decryption.convert(std::string(ENCRYPTED_DATA.begin(), ENCRYPTED_DATA.end()), seckey); // recover ciphertext
     return 0;
 }
 
