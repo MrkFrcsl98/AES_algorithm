@@ -1,7 +1,11 @@
 #pragma once
-
+#include <iomanip>     // needed to print as hex format
+#include <iostream>    // required for the CSPRNG function
+#include <cassert>
+#include <thread>      // for std::this_thread::sleep_for(...), std::thread().join()...
 #include <fstream>     // for the CSPRNG readFILE operation
 #include "aes.hpp"
+
 
 namespace AESTest
 {
@@ -212,42 +216,42 @@ using namespace AesCryptoModule;
     {
         if (MODE == AesCryptoModule::AESMode::ECB)
         {
-            encryptedData = aesECB128Encryptor.apply(plaintext, keyAES128);
-            decryptedData = aesECB128Decryptor.apply(std::string(encryptedData.begin(), encryptedData.end()), keyAES128);
+            encryptedData = aesECB128Encryptor.convert(plaintext, keyAES128);
+            decryptedData = aesECB128Decryptor.convert(std::string(encryptedData.begin(), encryptedData.end()), keyAES128);
         }
         else if (MODE == AesCryptoModule::AESMode::CBC)
         {
             aesCBC128Encryptor.iv = IV;
-            encryptedData = aesCBC128Encryptor.apply(plaintext, keyAES128);
+            encryptedData = aesCBC128Encryptor.convert(plaintext, keyAES128);
             aesCBC128Decryptor.iv = IV;
-            decryptedData = aesCBC128Decryptor.apply(std::string(encryptedData.begin(), encryptedData.end()), keyAES128);
+            decryptedData = aesCBC128Decryptor.convert(std::string(encryptedData.begin(), encryptedData.end()), keyAES128);
         }
         else if (MODE == AesCryptoModule::AESMode::CTR)
         {
             std::vector<byte> iv = IV;
             aesCTR128Encryptor.iv = iv;
-            encryptedData = aesCTR128Encryptor.apply(plaintext, keyAES128);
+            encryptedData = aesCTR128Encryptor.convert(plaintext, keyAES128);
             iv = IV;
             aesCTR128Decryptor.iv = iv;
-            decryptedData = aesCTR128Decryptor.apply(std::string(encryptedData.begin(), encryptedData.end()), keyAES128);
+            decryptedData = aesCTR128Decryptor.convert(std::string(encryptedData.begin(), encryptedData.end()), keyAES128);
         }
         else if (MODE == AesCryptoModule::AESMode::OFB)
         {
             std::vector<byte> iv = IV;
             aesOFB128Encryptor.iv = iv;
-            encryptedData = aesOFB128Encryptor.apply(plaintext, keyAES128);
+            encryptedData = aesOFB128Encryptor.convert(plaintext, keyAES128);
             iv = IV;
             aesOFB128Decryptor.iv = iv;
-            decryptedData = aesOFB128Decryptor.apply(std::string(encryptedData.begin(), encryptedData.end()), keyAES128);
+            decryptedData = aesOFB128Decryptor.convert(std::string(encryptedData.begin(), encryptedData.end()), keyAES128);
         }
         else if (MODE == AesCryptoModule::AESMode::CFB)
         {
             std::vector<byte> iv = IV;
             aesCFB128Encryptor.iv = iv;
-            encryptedData = aesCFB128Encryptor.apply(plaintext, keyAES128);
+            encryptedData = aesCFB128Encryptor.convert(plaintext, keyAES128);
             iv = IV;
             aesCFB128Decryptor.iv = iv;
-            decryptedData = aesCFB128Decryptor.apply(std::string(encryptedData.begin(), encryptedData.end()), keyAES128);
+            decryptedData = aesCFB128Decryptor.convert(std::string(encryptedData.begin(), encryptedData.end()), keyAES128);
         }
         printResult(std::string("AES(128) ") += model + " -> Encrypted(Hex): ", encryptedData);
         printResult(std::string("AES(128) ") += model + " -> Decrypted(Hex): ", decryptedData);
@@ -262,40 +266,40 @@ using namespace AesCryptoModule;
     {
         if (MODE == AesCryptoModule::AESMode::ECB)
         {
-            encryptedData = aesECB192Encryptor.apply(plaintext, keyAES192);
-            decryptedData = aesECB192Decryptor.apply(std::string(encryptedData.begin(), encryptedData.end()), keyAES192);
+            encryptedData = aesECB192Encryptor.convert(plaintext, keyAES192);
+            decryptedData = aesECB192Decryptor.convert(std::string(encryptedData.begin(), encryptedData.end()), keyAES192);
         }
         else if (MODE == AesCryptoModule::AESMode::CBC)
         {
             aesCBC192Encryptor.iv = IV;
-            encryptedData = aesCBC192Encryptor.apply(plaintext, keyAES192);
+            encryptedData = aesCBC192Encryptor.convert(plaintext, keyAES192);
             aesCBC192Decryptor.iv = IV;
-            decryptedData = aesCBC192Decryptor.apply(std::string(encryptedData.begin(), encryptedData.end()), keyAES192);
+            decryptedData = aesCBC192Decryptor.convert(std::string(encryptedData.begin(), encryptedData.end()), keyAES192);
         }
         else if (MODE == AesCryptoModule::AESMode::CTR)
         {
             aesCTR192Encryptor.iv = IV;
-            encryptedData = aesCTR192Encryptor.apply(plaintext, keyAES192);
+            encryptedData = aesCTR192Encryptor.convert(plaintext, keyAES192);
             aesCTR192Decryptor.iv = IV;
-            decryptedData = aesCTR192Decryptor.apply(std::string(encryptedData.begin(), encryptedData.end()), keyAES192);
+            decryptedData = aesCTR192Decryptor.convert(std::string(encryptedData.begin(), encryptedData.end()), keyAES192);
         }
         else if (MODE == AesCryptoModule::AESMode::OFB)
         {
             std::vector<byte> iv = IV;
             aesOFB192Encryptor.iv = iv;
-            encryptedData = aesOFB192Encryptor.apply(plaintext, keyAES192);
+            encryptedData = aesOFB192Encryptor.convert(plaintext, keyAES192);
             iv = IV;
             aesOFB192Decryptor.iv = iv;
-            decryptedData = aesOFB192Decryptor.apply(std::string(encryptedData.begin(), encryptedData.end()), keyAES192);
+            decryptedData = aesOFB192Decryptor.convert(std::string(encryptedData.begin(), encryptedData.end()), keyAES192);
         }
         else if (MODE == AesCryptoModule::AESMode::CFB)
         {
             std::vector<byte> iv = IV;
             aesCFB192Encryptor.iv = iv;
-            encryptedData = aesCFB192Encryptor.apply(plaintext, keyAES192);
+            encryptedData = aesCFB192Encryptor.convert(plaintext, keyAES192);
             iv = IV;
             aesCFB192Decryptor.iv = iv;
-            decryptedData = aesCFB192Decryptor.apply(std::string(encryptedData.begin(), encryptedData.end()), keyAES192);
+            decryptedData = aesCFB192Decryptor.convert(std::string(encryptedData.begin(), encryptedData.end()), keyAES192);
         }
         printResult(std::string("AES(192) ") += model + " -> Encrypted(Hex): ", encryptedData);
         printResult(std::string("AES(192) ") += model + " -> Decrypted(Hex): ", decryptedData);
@@ -310,40 +314,40 @@ using namespace AesCryptoModule;
     {
         if (MODE == AesCryptoModule::AESMode::ECB)
         {
-            encryptedData = aesECB256Encryptor.apply(plaintext, keyAES256);
-            decryptedData = aesECB256Decryptor.apply(std::string(encryptedData.begin(), encryptedData.end()), keyAES256);
+            encryptedData = aesECB256Encryptor.convert(plaintext, keyAES256);
+            decryptedData = aesECB256Decryptor.convert(std::string(encryptedData.begin(), encryptedData.end()), keyAES256);
         }
         else if (MODE == AesCryptoModule::AESMode::CBC)
         {
             aesCBC256Encryptor.iv = IV;
-            encryptedData = aesCBC256Encryptor.apply(plaintext, keyAES256);
+            encryptedData = aesCBC256Encryptor.convert(plaintext, keyAES256);
             aesCBC256Decryptor.iv = IV;
-            decryptedData = aesCBC256Decryptor.apply(std::string(encryptedData.begin(), encryptedData.end()), keyAES256);
+            decryptedData = aesCBC256Decryptor.convert(std::string(encryptedData.begin(), encryptedData.end()), keyAES256);
         }
         else if (MODE == AesCryptoModule::AESMode::CTR)
         {
             aesCTR256Encryptor.iv = IV;
-            encryptedData = aesCTR256Encryptor.apply(plaintext, keyAES256);
+            encryptedData = aesCTR256Encryptor.convert(plaintext, keyAES256);
             aesCTR256Decryptor.iv = IV;
-            decryptedData = aesCTR256Decryptor.apply(std::string(encryptedData.begin(), encryptedData.end()), keyAES256);
+            decryptedData = aesCTR256Decryptor.convert(std::string(encryptedData.begin(), encryptedData.end()), keyAES256);
         }
         else if (MODE == AesCryptoModule::AESMode::OFB)
         {
             std::vector<byte> iv = IV;
             aesOFB256Encryptor.iv = iv;
-            encryptedData = aesOFB256Encryptor.apply(plaintext, keyAES256);
+            encryptedData = aesOFB256Encryptor.convert(plaintext, keyAES256);
             iv = IV;
             aesOFB256Decryptor.iv = iv;
-            decryptedData = aesOFB256Decryptor.apply(std::string(encryptedData.begin(), encryptedData.end()), keyAES256);
+            decryptedData = aesOFB256Decryptor.convert(std::string(encryptedData.begin(), encryptedData.end()), keyAES256);
         }
         else if (MODE == AesCryptoModule::AESMode::CFB)
         {
             std::vector<byte> iv = IV;
             aesCFB256Encryptor.iv = iv;
-            encryptedData = aesCFB256Encryptor.apply(plaintext, keyAES256);
+            encryptedData = aesCFB256Encryptor.convert(plaintext, keyAES256);
             iv = IV;
             aesCFB256Decryptor.iv = iv;
-            decryptedData = aesCFB256Decryptor.apply(std::string(encryptedData.begin(), encryptedData.end()), keyAES256);
+            decryptedData = aesCFB256Decryptor.convert(std::string(encryptedData.begin(), encryptedData.end()), keyAES256);
         }
         printResult(std::string("AES(256) ") += model + " -> Encrypted(Hex): ", encryptedData);
         printResult(std::string("AES(256) ") += model + " -> Decrypted(Hex): ", decryptedData);
@@ -458,3 +462,6 @@ static void runGlobal()
 };
 
 }; // namespace Test
+
+
+
