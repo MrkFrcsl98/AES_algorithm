@@ -4,7 +4,7 @@
 int main() {
     aes_ctx ctx;
     byte key[32], iv[16];
-    byte plaintext[64] = "The quick brown fox";
+    byte plaintext[64] = "message to encrypt using AES";
     byte ciphertext[80], decrypted[80];
     size_t len = strlen((char*)plaintext);
     size_t padded_len = pkcs7_pad(plaintext, len, 16);
