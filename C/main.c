@@ -13,7 +13,7 @@ int main() {
     byte key[16]  = {0};
     byte iv[16]   = {0};
     byte nonce[16]= {0};
-    const char* plaintext = "AES Demo Example in All Modes!";
+    const char* plaintext = "Encryption using AES Block cipher!";
     size_t pt_len = strlen(plaintext);
     size_t padded_len = pt_len + AES_BLOCK_SIZE; // For padding
 
